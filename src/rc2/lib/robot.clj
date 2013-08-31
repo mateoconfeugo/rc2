@@ -1,7 +1,7 @@
 (ns rc2.lib.robot
   (:use rc2.lib.net
         protobuf.core
-        [clojure.string :only (upper-case)]
+        clojure.string
         clojure.core.async))
 
 (import 'com.pascucci.rc2.Comms$Request)
