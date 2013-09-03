@@ -36,7 +36,7 @@ recognized as enum values."
   (map #(>!! outbound (make-request %)) cmds)
   conn)
 
-(defn robot-connect! [host port]
+(defn connect! [host port]
   "Connect to the robot server running on host:port and return a descriptor of the connection."
   (let [outbound-chan (chan)
         connection {:outbound outbound-chan
