@@ -5,8 +5,9 @@
 ;; Descriptors for delta-style robots.
 
 (defrecord DeltaDescriptor [upper lower effector base])
+(defn delta-descriptor [upper lower effector base] (DeltaDescriptor. upper lower effector base))
 
-(declare is-reachable
+(declare reachable?
          inverse-3d)
 
 ;; TODO Implement protocol here.
@@ -16,12 +17,13 @@
 (extend-protocol RobotBehavior
   DeltaDescriptor
   (find-pose [descriptor position]
-    (when (is-reachable descriptor position)
+    (when (reachable? descriptor position)
       ;; (apply PointCoordinate.
       ;;        (map inverse-3d ))
       )))
 
-(defn is-reachable [descriptor position]
+(defn reachable? [descriptor position]
+  "Test if the position is reachable with the given descriptor."
   (let [{:keys [upper lower]} descriptor]
     (if (<= (displacement position) (+ upper lower))
       true
