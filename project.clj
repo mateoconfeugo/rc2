@@ -9,4 +9,6 @@
   :repositories {"local" ~(str (.toURI (java.io.File. "maven-local")))
                  "sonatype-oss-public" "https://oss.sonatype.org/content/groups/public/"}
   :plugins [[lein-marginalia "0.7.1"]]
+  :profiles {:dev {:dependencies [[midje "1.5.1"]]
+                   :plugins [[lein-midje "3.1.1"]]}}
   :main rc2.core)
