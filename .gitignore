@@ -11,3 +11,6 @@ maven-local
 .lein-failures
 .lein-plugins
 .lein-repl-history
+GPATH
+GRTAGS
+GTAGS
