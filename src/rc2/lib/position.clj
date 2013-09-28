@@ -2,11 +2,11 @@
 
 (defrecord PointCoordinate [x y z])
 
-(defn point-coordinate [x y z]
+(defn point [x y z]
   "Get a new point coordinate record for [x,y,z]."
   (PointCoordinate. x y z))
 
-(def origin (point-coordinate 0 0 0))
+(def origin (point 0 0 0))
 
 ;; TODO These have to be defined in a math library somewhere.
 (defn- square [x] (* x x))
@@ -26,7 +26,7 @@
   (let [ct (Math/cos angle)
         st (Math/sin angle)
         {:keys [x y z]} position]
-   (point-coordinate
+   (point
     (+ (* ct x) (* st y))
     (+ (* (- st) x) (* ct y))
     z)))
