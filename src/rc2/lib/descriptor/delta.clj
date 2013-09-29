@@ -1,34 +1,39 @@
 (ns rc2.lib.descriptor.delta
-  (:use rc2.lib.robot
-        rc2.lib.position))
+  (:require [rc2.lib
+             [math :as math]
+             [robot :as robot]
+             [position :as pos]]))
 
 ;; Descriptors for delta-style robots.
 
 (defrecord DeltaDescriptor [upper lower effector base])
-(defn delta-descriptor [upper lower effector base] (DeltaDescriptor. upper lower effector base))
+(defrecord DeltaPose [a b c])
 
-(declare reachable?
-         inverse-3d)
-
-;; TODO Implement protocol here.
-;; This will involve applying the inverse-3d function to each of the delta arms.
-;; Rotate the target point around the z by 2pi/3 and calculate the effector angles.
-;; TODO Unit test.
-(extend-protocol RobotBehavior
-  DeltaDescriptor
-  (find-pose [descriptor position]
-    (when (reachable? descriptor position)
-      ;; (apply PointCoordinate.
-      ;;        (map inverse-3d ))
-      )))
+(def two-thirds-pi (/ (* 2 Math/PI) 3))
+(def four-thirds-pi (/ (* 4 Math/PI) 3))
 
 (defn reachable? [descriptor position]
   "Test if the position is reachable with the given descriptor."
   (let [{:keys [upper lower]} descriptor]
-    (if (<= (displacement position) (+ upper lower))
+    (if (<= (pos/displacement position) (+ upper lower))
       true
       false)))
 
-;; TODO Implement the inverse kinematics function
-;; TODO Unit Test
-(defn- inverse-3d [descriptor position])
+(defn inverse-3d [descriptor position]
+  "Determine the angle needed for the arm with parameters given in the 'descriptor to reach 'position."
+  (let [{:keys [upper lower effector base]} descriptor
+        {:keys [x y z]} position
+        c (math/sqrt (+ (math/square z) (math/square (- (+ x effector) base))))
+        a2 (- (math/square lower) (math/square y))
+        alpha (math/acos (/ (- (+ (math/square upper) (math/square c)) a2) (* 2 c upper)))
+        beta (math/atan z (- (+ x effector) base))]
+    (+ alpha beta)))
+
+(extend-protocol robot/RobotBehavior
+  DeltaDescriptor
+  (find-pose [descriptor position]
+    (when (reachable? descriptor position)
+      (apply ->DeltaPose
+             (map (partial inverse-3d descriptor)
+                  (map (partial pos/rotate position)
+                       [0 two-thirds-pi four-thirds-pi]))))))
