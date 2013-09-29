@@ -28,30 +28,39 @@
   (fact "A point that is half the arm's distance away is reachable"
    (delta/reachable? test-descriptor (pos/point upper 0 0)) => true)
   (fact "A point 3 units more distant than the arm's length is unreachable"
-   (delta/reachable? test-descriptor (pos/point (+ upper lower 3) 0 0)) => false))
+   (delta/reachable? test-descriptor (pos/point (+ upper lower 3) 0 0))
+   => false))
 
 (facts "About inverse-3d"
   (fact "When the arm is given (10,0,-10) it should point straight out"
-    (delta/inverse-3d test-descriptor (pos/point 10 0 -10)) => (within? angle-tolerance 0))
+    (delta/inverse-3d test-descriptor (pos/point 10 0 -10))
+    => (within? angle-tolerance 0))
   (fact "When the arm is given (-10,0,-10) it should point straight down"
-    (delta/inverse-3d test-descriptor (pos/point -10 0 -10)) => (within? angle-tolerance (- (/ math/pi 2))))
-  (fact "When the arm is given a point directly below the origin, it should form an angle"
-    (delta/inverse-3d test-descriptor (pos/point 0 0 (- (* (+ upper lower) (math/sin (/ math/pi 4))))))
+    (delta/inverse-3d test-descriptor (pos/point -10 0 -10))
+    => (within? angle-tolerance (- (/ math/pi 2))))
+  (fact "A point directly below the origin should form an angle"
+    (let [z-val (- (* (+ upper lower) (math/sin (/ math/pi 4))))]
+      (delta/inverse-3d test-descriptor (pos/point 0 0 z-val)))
     => (within? angle-tolerance (- (/ math/pi 4))))
-  (fact "When the arm is given a point below as far down as it can reach, it should point straight down."
+  (fact "A point on the Z as far down as possible should point straight down."
     (delta/inverse-3d test-descriptor (pos/point 0 0 (- 0 upper lower)))
     => (within? angle-tolerance (- (/ math/pi 2))))
-  (fact "When the arm is given a point along the x axis, it should form an angle above the x axis."
-    (delta/inverse-3d test-descriptor (pos/point 10 0 0)) => (within? angle-tolerance (/ math/pi 3)))
-  (fact "When the arm is given a point just below the x axis, it should form an angle above the x axis."
-    (delta/inverse-3d test-descriptor (pos/point (* 10 (math/sin (/ math/pi 3))) 0 (- 5)))
+  (fact "A point along the x axis should form an angle above the x axis."
+    (delta/inverse-3d test-descriptor (pos/point 10 0 0))
+    => (within? angle-tolerance (/ math/pi 3)))
+  (fact "A point just below the x axis should form an angle above the x axis."
+    (delta/inverse-3d test-descriptor
+                      (pos/point (* 10 (math/sin (/ math/pi 3))) 0 (- 5)))
     => (within? angle-tolerance (/ math/pi 6))))
 
 (facts "About find-pose"
-  (fact "When the effector is positioned along the z axis, all of the arms should have the same angle"
-    (let [angle (/ math/pi 4)]
-      (robot/find-pose test-descriptor (pos/point 0 0 (- (* (+ upper lower) (math/sin angle)))))
-      => (pose-within? angle-tolerance (delta/->DeltaPose (- angle) (- angle) (- angle)))))
-  (fact "When the effector is positioned directly under arm A, the other two should be approximately vertical"
+  (fact "When positioned along the z axis, all arms angles are equal"
+    (let [angle (/ math/pi 4)
+          z-val (- (* (+ upper lower) (math/sin angle)))]
+      (robot/find-pose test-descriptor (pos/point 0 0 z-val))
+      => (pose-within? angle-tolerance
+                       (delta/->DeltaPose (- angle) (- angle) (- angle)))))
+  (fact "When positioned directly under arm A, B & C should be vertical"
     (robot/find-pose test-descriptor (pos/point 10 0 -10))
-    => (pose-within? angle-tolerance (delta/->DeltaPose 0 (- (/ math/pi 2)) (- (/ math/pi 2))))))
+    => (let [angle (- (/ math/pi 2))]
+         (pose-within? angle-tolerance (delta/->DeltaPose 0 angle angle)))))

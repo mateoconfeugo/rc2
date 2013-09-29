@@ -13,8 +13,6 @@
 (defn abs [x] (nt/abs x))
 (defn acos [x] (Math/acos x))
 (defn asin [x] (Math/asin x))
-(defn atan 
+(defn atan
   ([x] (Math/atan x))
   ([x y] (Math/atan2 x y)))
-
-
