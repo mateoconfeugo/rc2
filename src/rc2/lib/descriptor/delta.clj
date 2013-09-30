@@ -7,7 +7,7 @@
 ;; Descriptors for delta-style robots.
 
 (defrecord DeltaDescriptor [upper lower effector base])
-(defrecord DeltaPose [a b c])
+(defrecord DeltaPose [angles])
 
 (def two-thirds-pi (/ (* 2 Math/PI) 3))
 (def four-thirds-pi (/ (* 4 Math/PI) 3))
@@ -31,11 +31,17 @@
         beta (math/atan z (- (+ x effector) base))]
     (+ alpha beta)))
 
+(defn- find-angles [descriptor position]
+  (let [positions (map (partial pos/rotate position) [0 two-thirds-pi four-thirds-pi])
+        servos [:a :b :c]]
+    (into {} (map #(vector %1 (inverse-3d descriptor %2)) servos positions))))
+
 (extend-protocol robot/RobotBehavior
   DeltaDescriptor
   (find-pose [descriptor position]
     (when (reachable? descriptor position)
-      (apply ->DeltaPose
-             (map (partial inverse-3d descriptor)
-                  (map (partial pos/rotate position)
-                       [0 two-thirds-pi four-thirds-pi]))))))
+      (->DeltaPose (find-angles descriptor position)))))
+
+(extend-protocol robot/RobotPose
+  DeltaPose
+  (joint-angles [pose] (:angles pose)))

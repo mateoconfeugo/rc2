@@ -9,6 +9,10 @@
     "Perform forward kinematics to find a pose that puts the robot in the given
     position with the given intrinsic parameters."))
 
+(defprotocol RobotPose
+  "Interface functions for robot poses."
+  (joint-angles [pose] "Get the joint angles for the pose as a map from servo to angle."))
+
 ;; This protocol is intended to be used by functions which implement interfaces
 ;; to the actual device. These could be hardware or software interfaces; when
 ;; you give the function a pose the robot should change state to move to it.
