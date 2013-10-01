@@ -13,15 +13,15 @@
 (def four-thirds-pi (/ (* 4 Math/PI) 3))
 
 (defn reachable? [descriptor position]
-  "Test if 'position is reachable with the given 'descriptor."
+  "Test if 'position is reachable with an arm that matches 'descriptor."
   (let [{:keys [upper lower]} descriptor]
     (if (<= (pos/displacement position) (+ upper lower))
       true
       false)))
 
 (defn inverse-3d [descriptor position]
-  "Determine the angle needed for the arm with parameters given in 'descriptor
-  to reach 'position."
+  "Determine the angle needed for a single arm in the xz plane with parameters in 'descriptor to
+  reach 'position."
   (let [{:keys [upper lower effector base]} descriptor
         {:keys [x y z]} position
         c (math/sqrt (+ (math/square z) (math/square (- (+ x effector) base))))

@@ -33,10 +33,10 @@
    => false))
 
 (facts "About inverse-3d"
-  (fact "When the arm is given (10,0,-10) it should point straight out"
+  (fact "When the arm is at (10,0,-10) it should point straight out"
     (delta/inverse-3d test-descriptor (pos/point 10 0 -10))
     => (within? angle-tolerance 0))
-  (fact "When the arm is given (-10,0,-10) it should point straight down"
+  (fact "When the arm is at (-10,0,-10) it should point straight down"
     (delta/inverse-3d test-descriptor (pos/point -10 0 -10))
     => (within? angle-tolerance (- (/ math/pi 2))))
   (fact "A point directly below the origin should form an angle"

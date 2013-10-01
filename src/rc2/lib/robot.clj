@@ -6,8 +6,8 @@
 (defprotocol RobotBehavior
   "State transition functions for a robot"
   (find-pose [descriptor position]
-    "Perform forward kinematics to find a pose that puts the robot in the given
-    position with the given intrinsic parameters."))
+    "Perform inverse kinematics to find a pose that puts the robot in 'position with parameters from
+    'descriptor."))
 
 (defprotocol RobotPose
   "Interface functions for robot poses."
@@ -18,5 +18,4 @@
 ;; you give the function a pose the robot should change state to move to it.
 (defprotocol RobotDriver
   "Interface functions to move robots."
-  (take-pose! [interface pose]
-    "Move the robot into the given pose."))
+  (take-pose! [interface pose] "Move the robot into the pose."))
