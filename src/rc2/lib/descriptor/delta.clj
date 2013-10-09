@@ -23,11 +23,12 @@
   "Determine the angle needed for a single arm in the xz plane with parameters in 'descriptor to
   reach 'position."
   (let [{:keys [upper lower effector base]} descriptor
-        {:keys [x y z]} position
+        [x y z] position
         c (math/sqrt (+ (math/square z) (math/square (- (+ x effector) base))))
         a2 (- (math/square lower) (math/square y))
-        alpha (math/acos (/ (- (+ (math/square upper) (math/square c)) a2)
-                            (* 2 c upper)))
+        alpha (math/acos
+               (/ (- (+ (math/square upper) (math/square c)) a2)
+                  (* 2 c upper)))
         beta (math/atan z (- (+ x effector) base))]
     (+ alpha beta)))
 

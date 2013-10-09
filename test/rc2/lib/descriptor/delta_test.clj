@@ -52,7 +52,15 @@
   (fact "A point just below the x axis should form an angle above the x axis."
     (delta/inverse-3d test-descriptor
                       (pos/point (* 10 (math/sin (/ math/pi 3))) 0 (- 5)))
-    => (within? angle-tolerance (/ math/pi 6))))
+    => (within? angle-tolerance (/ math/pi 6)))
+  (fact "When the base and end effector aren't the same length"
+    (delta/inverse-3d (assoc test-descriptor :base (+ base 2))
+                      (pos/point 12 0 -10))
+    => (within? angle-tolerance 0))
+  (fact "When the base and end effector aren't the same length"
+    (delta/inverse-3d (assoc test-descriptor :effector (+ effector 2))
+                      (pos/point 8 0 -10))
+    => (within? angle-tolerance 0)))
 
 (facts "About joint-angles"
   (fact "joint-angles should return the joint angles as a map"
