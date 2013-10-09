@@ -18,4 +18,9 @@
 ;; you give the function a pose the robot should change state to move to it.
 (defprotocol RobotDriver
   "Interface functions to move robots."
-  (take-pose! [interface pose] "Move the robot into the pose."))
+  (initialize! [interface] "Perform setup operations on the interface. Return true if initialization
+  succeeds.")
+  (shut-down! [interface] "Perform shut down and clean up of the interface.")
+  (take-pose! [interface pose] "Move the robot into the pose. Return true if the pose was reached
+  successfully, false otherwise.")
+  (set-parameters! [interface parameters] "Set motor parameters on the interface."))

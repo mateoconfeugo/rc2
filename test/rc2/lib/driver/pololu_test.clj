@@ -2,23 +2,30 @@
   (:use midje.sweet
         rc2.lib.driver.pololu)
   (:require [rc2.lib.robot :as robot]
-            [rc2.lib.descriptor.delta :as delta]))
+            [rc2.lib.descriptor.delta :as delta]
+            [serial-port :as serial]))
 
-(def serial 'serial)
+(def port 'port)
 (def calibration {:low_usec 0 :high_usec 100 :low_angle -50 :high_angle 50 :inverted false})
-(def interface (->PololuInterface serial {:a calibration :b calibration :c calibration}))
+(def interface (->PololuInterface port {:a calibration :b calibration :c calibration}))
 (def pose (delta/->DeltaPose {:a 10 :b 5 :c 1}))
+(defn byte-arrays-equal [a1 a2]
+  (= (seq a1) (seq a2)))
+
+(facts "About initialize!"
+  (fact "initialize! should return true if the right byte is written"
+    (let [init-byte (byte-array 1 (byte -42))]
+      (robot/initialize! interface) => true
+      (provided (serial/write port (as-checker (partial byte-arrays-equal init-byte))) => true))))
 
 (facts "About take-pose!"
-  (fact "take-pose! should return true if all servo operations return true"
-    (robot/take-pose! interface pose) => true
-    (provided (move-servo! anything anything) => true :times 3))
-  (fact "take-pose! should use the calibration value for each servo"
-    (robot/take-pose! (assoc interface :calibrations
-                             {:a (assoc calibration :low_angle 0 :high_angle 20)
-                              :b (assoc calibration :low_angle 0 :high_angle 10)
-                              :c (assoc calibration :low_angle 0 :high_angle 2)}) pose) => true
-    (provided (move-servo! anything 50) => true)))
+  (future-fact "take-pose! should use the calibration value for each servo"
+    (let [interface (assoc interface :calibrations
+                           {:a (assoc calibration :low_angle 0 :high_angle 20)
+                            :b (assoc calibration :low_angle 0 :high_angle 10)
+                            :c (assoc calibration :low_angle 0 :high_angle 2)})]
+      (robot/take-pose! interface pose) => true
+      (provided (move-servo! interface anything 50) => true))))
 
 (facts "About ->duty-cycle"
   (fact "->duty-cycle should return nil if the angle is higher than the :high_angle"
@@ -38,4 +45,12 @@
   (fact "->duty-cycle should return a value below mid for args above mid when inverted"
     (->duty-cycle (assoc calibration :inverted true) 25) => 25)
   (fact "->duty-cycle should return a value above mid for args below mid when inverted"
-    (->duty-cycle (assoc calibration :inverted true) -25) => 75))
+    (->duty-cycle (assoc calibration :inverted true) -25) => 75)
+  (fact "->duty-cycle should return an int"
+    (->duty-cycle calibration 25.5) => 75))
+
+(facts "About servo->index"
+  (fact "servo->index should return nil if the servo keyword is wrong"
+    (servo->index :blah) => nil)
+  (fact "servo->inces should return 1 for :b"
+    (servo->index :b) => 1))
