@@ -53,18 +53,15 @@
 ;; TODO Unit test
 (defn ->move-command [servo duty-cycle]
   "Build a byte array representing the Pololu target command for the given servo."
-  (->4-byte-command servo (* 4 duty-cycle) :move 0x7F 7)
-  )
+  (->4-byte-command servo (* 4 duty-cycle) :move 0x7F 7))
 
 (defn ->velocity-command [servo velocity]
   "Create a byte array command to set 'servo to 'velocity."
-  (->4-byte-command servo velocity :velocity 0xFF 8)
-  )
+  (->4-byte-command servo velocity :velocity 0xFF 8))
 
 (defn ->acceleration-command [servo acceleration]
   "Create a byte array command to set 'servo to 'acceleration."
-  (->4-byte-command servo acceleration :acceleration 0xFF 8)
-  )
+  (->4-byte-command servo acceleration :acceleration 0xFF 8))
 
 (defn move-servo! [interface servo duty-cycle]
   "Move a single servo to the given duty cycle."
