@@ -45,13 +45,13 @@
 
 (defn ->duty-cycle-velocity [angular-velocity calibration]
   "Convert an angular velocity in rad/s to a duty cycle velocity using the values in 'calibration.
-   The calculated units are in 0.25 s/10ms, representing the duty cycle change for Maestro servo
+   The calculated units are in 0.25μs/10ms, representing the duty cycle change for Maestro servo
    controllers."
   (int (* angular-velocity (usec-per-rad calibration) 400)))
 
 (defn ->duty-cycle-acceleration [angular-acceleration calibration]
   "Convert an angular acceleration in rad/s^2 to a duty cycle acceleration using the values in
-   'calibration. The calculated units are 0.25 s/10ms/80ms, representing the duty cycle change for
+   'calibration. The calculated units are 0.25μs/10ms/80ms, representing the duty cycle change for
    Maestro servo controllers."
   (int (* 25/2 (->duty-cycle-velocity angular-acceleration calibration))))
 
@@ -125,6 +125,9 @@
         (move-servo! interface servo
                      (->duty-cycle (get (:calibrations interface) servo)
                                    (get angles servo))))))
+  (set-tool-state! [interface tool state]
+    (println "set-tool-state! is not implemented.")
+    (println "Ignoring request to set tool" tool "to state" state))
   (set-parameters! [interface parameters]
     (when-let [velocities (:velocity parameters)]
       (println "Setting velocities to" velocities)

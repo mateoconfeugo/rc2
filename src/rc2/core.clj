@@ -2,6 +2,7 @@
   (use clojure.tools.trace)
   (require [serial-port :as serial]
            [rc2.lib
+            [math :as math]
             [position :as pos]
             [robot :as rbt]]
            [rc2.lib.descriptor.delta :as delta]
@@ -46,30 +47,36 @@
       (Thread/sleep (if interpolate interpolate-delay no-interpolate-delay)))
     (swap! last-move (constantly pos))))
 
-(defn change-tool-state! [descriptor interface tool state]
-  (println "Changing tool" tool "state to" state))
+(defn change-tool-state! [interface tool state]
+  (rbt/set-tool-state! interface tool state))
 
 (defn execute! [descriptor interface tasks]
   "Execute 'tasks using 'interface."
   (let [do-move! (partial do-move! descriptor interface)
-        change-tool-state! (partial change-tool-state! descriptor interface)]
+        change-tool-state! (partial change-tool-state! interface)]
     (doseq [task tasks]
-      (let [type (trace 'type (first task))
-            params (trace 'params (rest task))]
+      (let [type (first task)
+            params (rest task)]
         (cond
          (= :move type) (apply do-move! params)
          (= :tool type) (apply change-tool-state! params)
          :else (println "Unknown task" task))))))
 
+
+(def max-velocity (/ math/pi 40))
+(def max-accel (/ math/pi 40))
 (defn -main [& args]
   (println "Starting up.")
   (let [{:keys [port targets-file]} (first (parse-args args))
         {:keys [serial-port descriptor interface]} (connect port)
-        positions (trace 'positions (load-file (trace 'targets targets-file)))]
+        positions (load-file targets-file)]
     (println "Port: " port)
     (rbt/initialize! interface)
-    (println "Initialized. Descriptor: " descriptor)
-    (println "Positions: " positions)
+    ;; TODO Extract this into a macro that executes a user script.
+    (rbt/set-parameters! interface
+                         {:velocity {:a max-velocity :b max-velocity :c max-velocity}
+                          :acceleration {:a max-accel :b max-accel :c max-accel}})
+    (println "Initialized.")
     (execute! descriptor interface positions)
     (println "Movements Complete")
     (serial/close serial-port)))

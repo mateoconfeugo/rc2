@@ -23,4 +23,5 @@
   (shut-down! [interface] "Perform shut down and clean up of the interface.")
   (take-pose! [interface pose] "Move the robot into the pose. Return true if the pose was reached
   successfully, false otherwise.")
+  (set-tool-state! [interface tool state] "Change the tool state.")
   (set-parameters! [interface parameters] "Set motor parameters on the interface."))
