@@ -26,17 +26,34 @@
                             :velocity 0x87
                             :acceleration 0x89})
 
+(defn usec-per-rad [calibration]
+  "Get the number of microseconds per radian for 'calibration."
+  (let [{:keys [low_usec high_usec low_angle high_angle]} calibration]
+    (/ (- high_usec low_usec) (- high_angle low_angle))))
+
 (defn ->duty-cycle [calibration angle]
   "Convert 'angle to a servo duty cycle in microseconds, using values in 'calibration."
   (let [{:keys [low_usec high_usec low_angle high_angle inverted]} calibration]
     (if (<= low_angle angle high_angle)
       (let [angle-delta (- angle low_angle)
-            usec-per-rad (/ (- high_usec low_usec) (- high_angle low_angle))
+            usec-per-rad (usec-per-rad calibration)
             usec-delta (* angle-delta usec-per-rad)]
         (int (if inverted
            (- high_usec usec-delta)
            (+ low_usec usec-delta))))
       (println "Angle " angle " is out of range [" low_angle "," high_angle "]"))))
+
+(defn ->duty-cycle-velocity [angular-velocity calibration]
+  "Convert an angular velocity in rad/s to a duty cycle velocity using the values in 'calibration.
+   The calculated units are in 0.25 s/10ms, representing the duty cycle change for Maestro servo
+   controllers."
+  (int (* angular-velocity (usec-per-rad calibration) 400)))
+
+(defn ->duty-cycle-acceleration [angular-acceleration calibration]
+  "Convert an angular acceleration in rad/s^2 to a duty cycle acceleration using the values in
+   'calibration. The calculated units are 0.25 s/10ms/80ms, representing the duty cycle change for
+   Maestro servo controllers."
+  (int (* 25/2 (->duty-cycle-velocity angular-acceleration calibration))))
 
 (defn servo->index [servo]
   "Convert a servo keyword into a numeric index. If the keyword is not valid, returns nil."
@@ -46,7 +63,7 @@
 (defn ->4-byte-command [servo value command mask shift]
   "Create a byte array command"
   (let [low_bits (bit-and value mask)
-        high_bits (bit-and (byte mask) (bit-shift-right value shift))
+        high_bits (bit-and mask (bit-shift-right value shift))
         index (servo->index servo)]
     (encode-array four-byte-frame [(get maestro-command-bytes command) index low_bits high_bits])))
 
@@ -71,22 +88,31 @@
 (defn set-properties! [interface properties frame-fn]
   "Set the properties on the interface to 'properties. 'properties is a mapping from servo index to
   desired property value."
-  (let [servos (keys properties)]
-    (doseq [servo servos]
-      (write-array interface (frame-fn servo (get properties servo))))))
+  (doseq [[servo property] properties]
+    (write-array interface (frame-fn servo property))))
 
 ;; The Maestro sets velocities in terms of change in PWM cycle per unit time, whereas we want change
 ;; in angle per unit time. This means we need to look up the servo and find the conversion rate
 ;; between the two units, and then pass the correct one to the next step.
 (defn set-velocities! [interface velocities]
-  ;; TODO Specify and convert between angular and Maestro units.
+  ;; TODO Extract unit conversion code into a general purpose function.
   "Set the velocities on the interface to 'velocities. 'velocities is a mapping from servo index to
-  desired velocity."
-  (set-properties! interface velocities '->velocity-command))
+  desired velocity, in rad/s."
+  (set-properties! interface
+                   (into {} (for [[servo velocity] velocities]
+                              [servo (trace 'duty-cycle-velocity (->duty-cycle-velocity
+                                             (trace 'velocity velocity)
+                                             (get (:calibrations interface) (trace 'servo servo))))]))
+                   ->velocity-command))
 
 (defn set-accelerations! [interface accelerations]
   "Set the maximum accelerations on the interface to 'accelerations."
-  (set-properties! interface accelerations '->acceleration-command))
+  (set-properties! interface
+                   (into {} (for [[servo acceleration] accelerations]
+                              [servo (->duty-cycle-acceleration
+                                      acceleration
+                                      (get (:calibrations interface) servo))]))
+                   ->acceleration-command))
 
 (extend-protocol robot/RobotDriver
   PololuInterface
@@ -100,5 +126,9 @@
                      (->duty-cycle (get (:calibrations interface) servo)
                                    (get angles servo))))))
   (set-parameters! [interface parameters]
-    (set-velocities! interface (:velocity parameters))
-    (set-accelerations! interface (:acceleration parameters))))
+    (when-let [velocities (:velocity parameters)]
+      (println "Setting velocities to" velocities)
+      (set-velocities! interface velocities))
+    (when-let [accelerations (:acceleration parameters)]
+      (println "Setting accelerations to" accelerations)
+      (set-accelerations! interface accelerations))))
