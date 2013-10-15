@@ -101,8 +101,8 @@
   (set-properties! interface
                    (into {} (for [[servo velocity] velocities]
                               [servo (trace 'duty-cycle-velocity (->duty-cycle-velocity
-                                             (trace 'velocity velocity)
-                                             (get (:calibrations interface) (trace 'servo servo))))]))
+                                             velocity
+                                             (get (:calibrations interface) servo)))]))
                    ->velocity-command))
 
 (defn set-accelerations! [interface accelerations]
