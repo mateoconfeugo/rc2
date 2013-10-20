@@ -37,7 +37,7 @@
         servos [:a :b :c]]
     (into {} (map #(vector %1 (inverse-3d descriptor %2)) servos positions))))
 
-(extend-protocol robot/RobotBehavior
+(extend-protocol robot/RobotDescriptor
   DeltaDescriptor
   (find-pose [descriptor position]
     (when (reachable? descriptor position)
