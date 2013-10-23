@@ -5,30 +5,30 @@
 (def tolerance 1e-14)
 
 (facts "About calling displacement with one argument"
-  (fact (displacement (point 0 1 0)) => 1)
-  (fact (displacement (point 2 2 2)) => (Math/sqrt 12))
-  (fact (displacement (point -2 -2 -2)) => (Math/sqrt 12)))
+  (fact (displacement (->vec 0 1 0)) => 1)
+  (fact (displacement (->vec 2 2 2)) => (Math/sqrt 12))
+  (fact (displacement (->vec -2 -2 -2)) => (Math/sqrt 12)))
 
 (facts "About calling displacement with two arguments"
-  (fact (displacement (point 0 1 0) (point 0 2 0)) => 1)
-  (fact (displacement (point 2 2 2) (point 4 4 4)) => (Math/sqrt 12))
-  (fact (displacement (point -2 -2 -2) (point -4 -4 -4)) => (Math/sqrt 12)))
+  (fact (displacement (->vec 0 1 0) (->vec 0 2 0)) => 1)
+  (fact (displacement (->vec 2 2 2) (->vec 4 4 4)) => (Math/sqrt 12))
+  (fact (displacement (->vec -2 -2 -2) (->vec -4 -4 -4)) => (Math/sqrt 12)))
 
 (facts "About within"
   (fact "'within is true if two points are closer than 'dist from each other"
-       (within 1 (point 0 0 0.5) origin) => true)
+       (within 1 (->vec 0 0 0.5) origin) => true)
   (fact "'within is false if two points are farther than 'dist from each other"
-        (within 1 (point 0 0 10) origin) => false))
+        (within 1 (->vec 0 0 10) origin) => false))
 
 (facts "About rotate"
-  (fact "Rotating a point along the x axis by pi mirrors it over the y axis"
-   (within tolerance (point -1.0 0.0 0.0) (rotate (point 1.0 0.0 0.0) Math/PI))
+  (fact "Rotating a vec along the x axis by pi mirrors it over the y axis"
+   (within tolerance (->vec -1.0 0.0 0.0) (rotate (->vec 1.0 0.0 0.0) Math/PI))
    => true)
-  (fact "Rotating a point along the y axis by pi mirrors it over the x axis"
-    (within tolerance (point 0.0 -1.0 0.0) (rotate (point 0.0 1.0 0.0) Math/PI))
+  (fact "Rotating a vec along the y axis by pi mirrors it over the x axis"
+    (within tolerance (->vec 0.0 -1.0 0.0) (rotate (->vec 0.0 1.0 0.0) Math/PI))
     => true)
-  (fact "Rotating a point along the z axis has no effect"
-    (within tolerance (point 0.0 0.0 1.0) (rotate (point 0.0 0.0 1.0) Math/PI))
+  (fact "Rotating a vec along the z axis has no effect"
+    (within tolerance (->vec 0.0 0.0 1.0) (rotate (->vec 0.0 0.0 1.0) Math/PI))
     => true))
 
 (facts "About interpolate"
@@ -44,5 +44,5 @@
   (fact "Interpolating from negative to positive points should work"
     (interpolate [-1 0 0] [1 0 0] 1) => '((-1 0 0) (0 0 0) (1 0 0)))
   (fact "Interpolating from negative to positive points should work"
-    (interpolate [0 0 0] [1 0 0] 0.25) => '((0.0 0.0 0.0) (0.25 0.0 0.0) (0.5 0.0 0.0) (0.75 0.0 0.0)
-                                            [1 0 0])))
+    (interpolate [0 0 0] [1 0 0] 0.25)
+    => '((0.0 0.0 0.0) (0.25 0.0 0.0) (0.5 0.0 0.0) (0.75 0.0 0.0) [1 0 0])))
