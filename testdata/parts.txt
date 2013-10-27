@@ -1,0 +1,5 @@
+[
+ [:Atmega328P [0, 10, 15]],
+ [:10OhmResistor [0, 12, 15]],
+ [:250OhmResistor [0, 8, 15]]
+]

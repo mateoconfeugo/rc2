@@ -1,0 +1,12 @@
+;; Demo script
+(apply concat
+       (repeat 4 ['(:move [0 0 -10])
+                  '(:move [0 0 -8])
+                  '(:move [5 0 -8])
+                  '(:move [5 5 -8])
+                  '(:move [-5 5 -8])
+                  '(:move [-5 -5 -8])
+                  '(:move [5 -5 -8])
+                  '(:move [0 0 -8])
+                  '(:tool :a :on)
+                  '(:move [0 0 -10])]))
