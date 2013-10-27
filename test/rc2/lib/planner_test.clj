@@ -10,8 +10,12 @@
 
 (facts "About map-to-sources"
   (fact (map-to-sources sources [[:part-b [6 5 4]] [:part-a [3 2 1]] [:part-a [3 2 1]]])
-    => [[[4 5 6] [6 5 4]] [[1 2 3] [3 2 1]] [[1 2 3] [3 2 1]]]))
+    => [[[4 5 6] [6 5 4]] [[1 2 3] [3 2 1]] [[1 2 3] [3 2 1]]])
+  (fact (map-to-sources sources [[:unknown [6 5 4]] [:part-a [3 2 1]]])
+    => [nil [[1 2 3] [3 2 1]]]))
 
 (facts "About plan-pick-and-place"
   (fact (plan-pick-and-place sources [[:part-b [6 5 4]] [:part-a [3 2 1]] [:part-a [3 2 1]]])
-    => [[4 5 6] [6 5 4] [1 2 3] [3 2 1] [1 2 3] [3 2 1]]))
+    => [[4 5 6] [6 5 4] [1 2 3] [3 2 1] [1 2 3] [3 2 1]])
+  (fact (plan-pick-and-place sources [[:part-b [6 5 4]] [:unknown [3 2 1]]])
+    => nil))

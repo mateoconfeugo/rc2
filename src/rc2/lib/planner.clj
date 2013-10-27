@@ -21,4 +21,5 @@
     ;; distances, and select the lowest weighted path. Add the path to the path list. Select the
     ;; next lowest path - if it's from a destination that's already in the path list, skip it. If
     ;; not, add it to the path list. Repeat untill all destinations have been accounted for.
-    (apply concat source-paths)))
+    (when (not-any? nil? source-paths)
+      (apply concat source-paths))))
