@@ -2,7 +2,8 @@
 
 (defn ->source [sources part]
   "Map a part to its source using locations provided in 'sources."
-  (vector (get sources (first part)) (second part)))
+  (when-let [source-location (get sources (first part))]
+    (vector source-location (second part))))
 
 (defn map-to-sources [sources destinations]
   "Map destinations to their component sources."
