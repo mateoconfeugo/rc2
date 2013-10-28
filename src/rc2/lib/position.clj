@@ -47,7 +47,7 @@
   ([p] (displacement origin p))
   ([p1 p2] (vector-length (->vec-vector p1 p2))))
 
-(type/ann rotate (Fn [Vec Double -> Vec]))
+(type/ann rotate (Fn [Vec Number -> Vec]))
 (defn rotate [position angle]
   {:pre [(vec? position)]}
   "In three dimensions, rotate 'position around the Z axis by 'angle radians."

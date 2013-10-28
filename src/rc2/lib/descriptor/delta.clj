@@ -1,17 +1,36 @@
 (ns rc2.lib.descriptor.delta
-  (:require [rc2.lib
+  (:require [clojure.core.typed :as type]
+            [rc2.lib
              [math :as math]
              [robot :as robot]
-             [position :as pos]]))
+             [position :as pos]])
+  (:import [clojure.lang IPersistentMap IPersistentVector Keyword]))
+
+(declare reachable? find-angles)
 
 ;; Descriptors for delta-style robots.
+(type/ann-record DeltaPose [angles :- (IPersistentMap Keyword Number)])
+(defrecord DeltaPose [angles]
+  robot/RobotPose
+  (joint-angles [pose] (:angles pose)))
 
-(defrecord DeltaDescriptor [upper lower effector base])
-(defrecord DeltaPose [angles])
+(type/ann-record DeltaDescriptor [upper :- Number
+                                  lower :- Number
+                                  effector :- Number
+                                  base :- Number])
+(defrecord DeltaDescriptor [upper lower effector base]
+  robot/RobotDescriptor
+  (find-pose [descriptor position] (->DeltaPose (find-angles descriptor position)))
+  (reachable? [descriptor position] (reachable? descriptor position)))
 
+(type/ann zero Number)
+(def zero 0)
+(type/ann two-thirds-pi Number)
 (def two-thirds-pi (/ (* 2 Math/PI) 3))
+(type/ann four-thirds-pi Number)
 (def four-thirds-pi (/ (* 4 Math/PI) 3))
 
+(type/ann reachable? [DeltaDescriptor pos/Vec -> Boolean])
 (defn reachable? [descriptor position]
   "Test if 'position is reachable with an arm that matches 'descriptor."
   (let [{:keys [upper lower]} descriptor]
@@ -19,6 +38,7 @@
       true
       false)))
 
+(type/ann inverse-3d [DeltaDescriptor pos/Vec -> Number])
 (defn inverse-3d [descriptor position]
   "Determine the angle needed for a single arm in the xz plane with parameters in 'descriptor to
   reach 'position."
@@ -32,17 +52,12 @@
         beta (math/atan z (- (+ x effector) base))]
     (+ alpha beta)))
 
+(type/ann find-angles [DeltaDescriptor pos/Vec
+                      -> (IPersistentMap Keyword Number)])
 (defn- find-angles [descriptor position]
-  (let [positions (map (partial pos/rotate position) [0 two-thirds-pi four-thirds-pi])
+  (let [positions (map (partial pos/rotate position) [zero two-thirds-pi four-thirds-pi])
         servos [:a :b :c]]
-    (into {} (map #(vector %1 (inverse-3d descriptor %2)) servos positions))))
-
-(extend-protocol robot/RobotDescriptor
-  DeltaDescriptor
-  (find-pose [descriptor position]
-    (when (reachable? descriptor position)
-      (->DeltaPose (find-angles descriptor position)))))
-
-(extend-protocol robot/RobotPose
-  DeltaPose
-  (joint-angles [pose] (:angles pose)))
+    (into {}
+          (map
+           (type/fn> :- (Vector* Keyword Number) [servo :- Keyword position :- pos/Vec]
+                     (vector servo (inverse-3d descriptor position))) servos positions))))

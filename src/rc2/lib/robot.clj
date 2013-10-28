@@ -1,17 +1,21 @@
 (ns rc2.lib.robot
-  (:require [clojure.core.typed :as type :refer [defprotocol>]])
+  (:require [clojure.core.typed :as type :refer [defprotocol>]]
+            [rc2.lib.position :as pos])
   (:import [clojure.lang IPersistentMap IPersistentVector Keyword]))
 
 ;; This protocol defines pose creation functions. Passing a desired position and
 ;; descriptor allows the functions to create pose descriptions that can be
 ;; passed to robot drivers.
 (type/ann-protocol RobotDescriptor
-                   find-pose [RobotDescriptor (IPersistentVector Number) -> RobotPose])
+                   find-pose [RobotDescriptor pos/Vec -> RobotPose]
+                   reachable? [RobotDescriptor pos/Vec -> Boolean])
 (defprotocol> RobotDescriptor
   "State transition functions for a robot"
   (find-pose [descriptor position]
     "Perform inverse kinematics to find a pose that puts the robot in 'position with parameters from
-    'descriptor."))
+    'descriptor.")
+  (reachable? [descriptor position]
+    "Returns true if the position is reachable, false otherwise."))
 
 ;; This protocol defines pose manipulation/access functions.
 (type/ann-protocol RobotPose

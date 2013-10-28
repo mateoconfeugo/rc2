@@ -6,18 +6,18 @@
 (type/ann ^:no-check clojure.math.numeric-tower/sqrt [Number -> Number])
 
 ;; Constants
-(type/ann pi Double)
+(type/ann pi Number)
 (def pi Math/PI)
 
 ;; Functions
-(type/ann cos [Double -> Number])
-(defn cos [theta] (Math/cos theta))
+(type/ann cos [Number -> Number])
+(defn cos [theta] (Math/cos (double theta)))
 
-(type/ann sin [Double -> Number])
-(defn sin [theta] (Math/sin theta))
+(type/ann sin [Number -> Number])
+(defn sin [theta] (Math/sin (double theta)))
 
-(type/ann tan [Double -> Number])
-(defn tan [theta] (Math/tan theta))
+(type/ann tan [Number -> Number])
+(defn tan [theta] (Math/tan (double theta)))
 
 (type/ann square [Number -> Number])
 (defn square [x] (nt/expt x 2))
@@ -28,15 +28,15 @@
 (type/ann abs [Number -> Number])
 (defn abs [x] (nt/abs x))
 
-(type/ann acos [Double -> Number])
-(defn acos [x] (Math/acos x))
+(type/ann acos [Number -> Number])
+(defn acos [x] (Math/acos (double x)))
 
-(type/ann asin [Double -> Number])
-(defn asin [x] (Math/asin x))
+(type/ann asin [Number -> Number])
+(defn asin [x] (Math/asin (double x)))
 
 (type/ann atan
-          (Fn [Double -> Number]
-              [Double Double -> Number]))
+          (Fn [Number -> Number]
+              [Number Number -> Number]))
 (defn atan
-  ([x] (Math/atan x))
-  ([x y] (Math/atan2 x y)))
+  ([x] (Math/atan (double x)))
+  ([x y] (Math/atan2 (double x) (double y))))
