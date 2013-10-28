@@ -14,7 +14,7 @@
   :repositories {"local" ~(str (.toURI (java.io.File. "maven-local")))
                  "sonatype-oss-public" "https://oss.sonatype.org/content/groups/public/"}
   :plugins [[lein-marginalia "0.7.1"]]
-  :profiles {:dev {:dependencies [[midje "1.6-beta1-np"]]
+  :profiles {:dev {:dependencies [[midje "1.5.1"]]
                    :plugins [[lein-midje "3.1.1"]]}}
   :core.typed {:check [rc2.lib.math rc2.lib.position]}
   :main rc2.core)
