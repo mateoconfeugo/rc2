@@ -1,0 +1,158 @@
+RC2 - "Robot Controller 2"
+
+* API surface
+The RC2 API is task-based, exposing mechanisms for adding, removing, and retrieving tasks. The API
+provides these via a REST-style API surface which interacts with a centralized task store.
+
+** REST Methods
+
+Tasks
+GET /tasks - lists tasks, along with their current state. Query parameters allow for sorting by
+creation or update time, and filtering by state.
+GET /tasks/<task-id> - gets a specific task by ID.
+PUT /tasks - add a new task.
+DELETE /tasks/<task-id> - remove a task and halt further execution on it.
+
+Events
+GET /events - lists events. Query parameters allow for sorting by creation time, or filtering by
+state or task.
+GET /events/<event-id> - gets a specific event by ID.
+
+Note: events cannot be deleted or added by the user; they are managed by the system.
+
+GET /status - get the current state of the robot.
+
+GET /meta - get metadata about the current server, such as uptime and load.
+
+* Architectural notes
+
+** Tasks and events
+*** Tasks
+When a new task is received, it is added to a task listing and assigned an ID. The task listing is a
+mapping from ID to task description, where each task's ID is /sequential/ and /unique/. The listing
+tracks the next ID available for assignment.
+
+#+NAME Task structure
+#+begin_src clojure
+  {
+   ;; Required keys
+   :id 1 ;; Unique, sequential ID of this task
+   :created 12345 ;; Time the task was created
+   :type :move ;; The type of the task
+   :update 12345 ;; The ID of the latest event for this task
+   :state :processing ;; The current state of the task. One of :new, :processing, :complete,
+                      ;; :canceled, or :failed.
+   :affinity serial ;; Exclusivity of the task - serial or parallel.
+
+   ;; Optional keys. These depend on the task type.
+   :destination {:x 1 :y 2 :z 3} ;; Cartesian coordinate destination for :move tasks
+  }
+#+end_src
+
+*** Events
+Events are used to log state transitions for each task. They are tracked in a mapping just like
+tasks, from the event ID to the event description. Each event is associated with a single task, and
+describes a single state transition for that task.
+
+#+NAME Event structure
+#+begin_src clojure
+  {
+   :id 1 ;; ID of this event
+   :task 1 ;; ID of the task this event is attached to
+   :created 12345 ;; The creation time of this event
+   :changed {:state :complete} ;; The change that occurred as a result of this event
+   :errors nil ;; Data about errors encountered during processing. If the task failed, the event will
+               ;; have an exception and log message to aid debugging. Otherwise, this is nil.
+  }
+#+end_src
+
+*** History
+The event log contains the complete history of each task. When a new task is created, an event will
+be added to the log showing the creation:
+
+#+begin_src clojure
+  {
+   :id 1
+   :task 1
+   :created 12345
+   :changed {:state :new
+             :type :move
+             :destination {:x 1 :y 2 :z 3}}
+  }
+#+end_src
+
+Each update to task state will have its own event:
+
+#+begin_src clojure
+  {
+   :id 2
+   :task 1
+   :created 12346
+   :changed {:state :processing}
+  }
+#+end_src
+
+Using the event log, the state of the system can be reconstructed as it was at any point during the
+system lifetime.
+
+** Execution
+*** State transition model
+When a task is first added to the queue it is in state ~:new~. This state indicates that no
+processing has yet been performed on the task. When a worker becomes available, the task will be
+removed from the queue and move to state ~:processing~. The worker will perform any state
+transitions or I/O operations required to complete the task, and update it to state ~:complete~ when
+all the sub-tasks are finished. At each point in the process, new events will be created to track
+state transitions for the task.
+
+*** Worker pools
+Some types of tasks require exclusive access to the robot, such as ~:move~ commands. Others are able
+to be executed at any time, independent of other tasks. Exclusionary and non-exclusionary tasks are
+executed in different worker pools. The exclusionary pool consists of a single worker, whereas the
+non-exclusionary pool can have any number of workers as supported by the underlying
+platform. Non-exclusionary tasks can be made to execute on the exclusionary queue by setting the
+~:affinity~ field on the task to ~serial~.
+
+*** Task dispatch
+Communication of tasks between workers is performed using asynchronous queues. When a task is
+created, state information as described above is added by the creating worker to the state model and
+the task ID is passed into a dispatch queue. The ID is then dequeued by a dispatch worker which
+looks up the type of the task and adds it to either an exclusionary or non-exclusionary queue. These
+queues are then serviced by worker pools which execute the tasks using core library functions and
+update their state. When a task is dequeued for processing, it is updated to the ~:processing~
+state, and when it is completed the worker updates its state to ~:complete~.
+
+*** Cancellation and failures
+Cancellation is performed by enqueuing a task ID into a special 'cancellation queue'. This queue is
+consumed by a worker which simply updates the task state to ~:cancelled~. If another worker dequeues
+this task, it will discard it without further processing. Once a task has begun processing, it can
+no longer be cancelled.
+
+*** Flow diagram
+
+#+begin_src ditaa :file comms-flow.png
+  
+  +----------+     +-------------------+     +-------------------+
+  | Dispatch |     |   Exclusionary    |     |    Exclusionary   |
+  |  Queue   |---->|      Queue        |---->|      Worker       |
+  |   {s}    |     |       {s}         |  +->|                   |
+  |          |     +-------------------+  |  +-------------------+
+  |          |                            | 
+  |          |     +-------------------+  |  +-------------------+
+  |          |     |  NonExclusionary  |  |  |  NonExclusionary  |
+  |          |---->|      Queue        |--+->|      Worker       |
+  |          |     |       {s}         |  +->|                   |
+  +----------+     +-------------------+  |  +-------------------+
+                                          |             
+  +----------+                            |             
+  | Cancel   |                            |             
+  | Queue    |                            |             
+  |   {s}    |----------------------------+             
+  |          |
+  |          |
+  +----------+
+  
+#+end_src
+  
+  
+* Misc notes
+ - Might be worthwhile to see if we can use Datomic to maintain our data structure for task state.
