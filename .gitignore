@@ -2,6 +2,8 @@
 /lib
 /classes
 /checkouts
+/notes/*.html
+/notes/*.png
 pom.xml
 pom.xml.asc
 maven-local
@@ -11,6 +13,7 @@ maven-local
 .lein-failures
 .lein-plugins
 .lein-repl-history
+.nrepl-port
 GPATH
 GRTAGS
 GTAGS
