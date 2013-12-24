@@ -70,8 +70,7 @@
 (defn add-event! [event]
   "Add a new event to the log."
   (dosync
-   (let [event-id (inc (:last-event-id @model))
-         event (assoc event :id event-id)]
+   (let [event-id (inc (:last-event-id @model))]
      (alter model assoc-in [:events event-id] event)
      (alter model assoc :last-event-id event-id)
      event-id)))
@@ -84,22 +83,32 @@
    :task task-id
    :changed (apply hash-map deltas)})
 
-(defn make-task [type & {:keys [destination]}]
+(defn update-task! [task-id & deltas]
+  "Update a task by field. Example: (update-task 1 :status :started)"
+  (dosync
+   (let [event (apply (partial make-event task-id nil) deltas)
+         event-id (add-event! event)
+         task (assoc (get-in @model [:tasks task-id]) :update event-id)]
+     (alter model assoc-in [:tasks task-id] (merge task (apply hash-map deltas))))))
+
+(defn make-task [type {:keys [destination]}]
   "Create a new task."
   (let [template {:created (current-time) :type type :affinity :parallel}]
     (cond
-     (= :move type) (assoc template
-                      :destination destination
-                      :affinity :serial))))
+     (= :move type) (assoc template :destination destination :affinity :serial))))
 
 (defn add-task! [type & {:keys [destination] :as kw-args}]
   "Add a task to the task listing."
   (dosync
-   (let [task-id (inc (:last-task-id @model))
-         event-id (add-event! (make-event task-id nil :state :created))]
-     (alter model assoc-in [:tasks task-id] (assoc (make-task type kw-args) :updated event-id))
-     (alter model assoc :last-task-id task-id))))
+   (let [task-id (inc (:last-task-id @model))]
+     (alter model assoc-in [:tasks task-id] (make-task type kw-args))
+     (alter model assoc :last-task-id task-id)
+     (update-task! task-id :state :new))))
 
-;; (defn update-task [task-id & deltas]
-;;   "Update a task by field. Example: (update-task 1 :")
+(defn get-tasks []
+  "Get the task registry."
+  (:tasks @model))
 
+(defn get-events []
+  "Get the event registry."
+  (:events @model))
