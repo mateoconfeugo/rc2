@@ -21,18 +21,25 @@
   (ANY "/api/v1/tasks" []
        (resource :available-media-types ["application/json"]
                  :allowed-methods [:post :get]
-                 :handle-ok (fn [ctx] (task/get-tasks))
+                 :handle-ok (fn [ctx] (let [tasks (task/get-tasks)]
+                                        (println "Tasks:" tasks)
+                                        tasks))
                  :handle-created ::task
-                 :post! (fn [ctx] (let [options (::data ctx)
-                                       type (:type options)]
-                                   {::task (task/add-task! type options)}))))
+                 :post! (fn [ctx]
+                          (println "Request:" (get-in ctx [:request :body]))
+                          (let [options (get-in ctx [:request :body])
+                                type (keyword (:type options))
+                                task (task/add-task! type options)]
+                            (println "Added task:" task)
+                            {::id (:id task)}))
+                 :post-redirect? (fn [ctx] {:location (format "/api/v1/tasks/%s" (::id ctx))})))
   (ANY "/api/v1/tasks/:id" [id]
        (resource :available-media-types ["application/json"]
                  :allowed-methods [:delete :get]
-                 :exists? (fn [_] (let [task (task/get-task id)]
-                                    (if-not (nil? task) {::task task})))
+                 :exists? (fn [_] (let [task (task/get-task (Integer. id))]
+                                    (if task {::task task})))
                  :handle-ok ::task
-                 :delete! (fn [_] (task/cancel-task! id))))
+                 :delete! (fn [_] (task/cancel-task! (Integer. id)))))
   (ANY "/meta" []
        (resource :available-media-types ["application/json"]
                  :allowed-methods [:get]
@@ -42,10 +49,10 @@
   (route/not-found "Not Found"))
 
 (def api (-> api-routes
-                 (wrap-params)
-                 (wrap-json-body)
-                 (wrap-json-response)
-                 (trace/wrap-stacktrace)))
+             (wrap-params)
+             (wrap-json-body {:keywords? true})
+             (wrap-json-response)
+             (trace/wrap-stacktrace)))
 
 (defn start-api-server [port]
   "Start the API server on the given port."

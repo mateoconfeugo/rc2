@@ -85,8 +85,10 @@
   (dosync
    (let [event (apply (partial make-event task-id nil) deltas)
          event-id (add-event! event)
-         task (assoc (get-in @model [:tasks task-id]) :update event-id)]
-     (alter model assoc-in [:tasks task-id] (merge task (apply hash-map deltas))))))
+         original-task (assoc (get-in @model [:tasks task-id]) :update event-id)
+         updated-task (merge original-task (apply hash-map deltas))]
+     (alter model assoc-in [:tasks task-id] updated-task)
+     original-task)))
 
 (defn make-task [type {:keys [destination]}]
   "Create a new task."
@@ -97,8 +99,9 @@
 (defn add-task! [type options]
   "Add a task to the task listing."
   (dosync
-   (let [task-id (inc (:last-task-id @model))]
-     (alter model assoc-in [:tasks task-id] (make-task type options))
+   (let [task-id (inc (:last-task-id @model))
+         task (assoc (make-task type options) :id task-id)]
+     (alter model assoc-in [:tasks task-id] task)
      (alter model assoc :last-task-id task-id)
      (update-task! task-id :state :new))))
 
