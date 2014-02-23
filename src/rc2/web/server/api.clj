@@ -39,7 +39,20 @@
                  :exists? (fn [_] (let [task (task/get-task (Integer. id))]
                                     (if task {::task task})))
                  :handle-ok ::task
+                 ;; TODO Change this to a PATCH or PUT instead of DELETE.
                  :delete! (fn [_] (task/cancel-task! (Integer. id)))))
+  (ANY "/api/v1/events" []
+       (resource :available-media-types ["application/json"]
+                 :allowed-methods [:get]
+                 :handle-ok (fn [ctx] (let [events (task/get-events)]
+                                        (println "Events:" events)
+                                        events))))
+  (ANY "/api/v1/events/:id" [id]
+       (resource :available-media-types ["application/json"]
+                 :allowed-methods [:get]
+                 :exists? (fn [_] (let [event (task/get-event (Integer. id))]
+                                    (if event {::event event})))
+                 :handle-ok ::event))
   (ANY "/meta" []
        (resource :available-media-types ["application/json"]
                  :allowed-methods [:get]

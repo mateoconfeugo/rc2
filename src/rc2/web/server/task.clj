@@ -3,13 +3,13 @@
   (:use [clojure.core.async]))
 
 ;;;; Task management facilities for RC2 API server.
-
 (defonce model (ref {:events {}
                      :last-event-id 0
                      :tasks {}
                      :last-task-id 0
                      :device-status {}}))
 
+(def initialized (atom false))
 (defonce queues {:dispatch (chan 50)
                  :serial (chan 50)
                  :parallel (chan 50)})
@@ -24,10 +24,13 @@
                          (s/required-key :y) s/Number
                          (s/required-key :z) s/Number}})
 
+(declare update-task!)
+
 ;; TODO Handle task based on type.
 (defn- do-task! [task]
   "Perform a task."
-  (println "Executing task: " task))
+  (println "Executing task: " task)
+  (update-task! (:id task) :state :complete))
 
 (defn- dispatch-queues! [{:keys [dispatch serial parallel]}]
   "Allocate tasks from the 'dispatch queue into the 'serial and 'parallel queues."
@@ -42,27 +45,29 @@
 (defn- process-queue! [queue]
   "Process tasks from the queue until it is closed."
   (go (loop [task (<! queue)]
-        (when task (do-task! task) (recur (<! queue))))))
+        (when task
+          (do-task! task)
+          (recur (<! queue))))))
 
 (defn init-workers! [num-parallel]
   "Create worker jobs to consume tasks. Creates one serial worker and 'num-parallel parallel ones.
    This function does not check to see if workers have already been created."
-  (dispatch-queues! queues)
-  (process-queue! (:serial queues))
-  (dotimes [i num-parallel]
-    (process-queue! (:parallel queues)))
-  true)
+  (if @initialized
+    false
+    (do (dispatch-queues! queues)
+        (process-queue! (:serial queues))
+        (dotimes [i num-parallel]
+          (process-queue! (:parallel queues)))
+        (reset! initialized true))))
 
 (defn shutdown-queues! [& {:keys [dispatch serial parallel]}]
   "Shut down the queues so that workers will terminate when the last task is consumed."
   (map close! [dispatch serial parallel]))
 
-(defn current-time []
-  "Get the current time in milliseconds."
-  (System/currentTimeMillis))
-
 (defn dispatch-task! [task]
-  (>!! (:dispatch queues) task))
+  "Add a task to the dispatch queue for execution."
+  (>!! (:dispatch queues) task)
+  task)
 
 (defn add-event! [event]
   "Add a new event to the log."
@@ -71,6 +76,10 @@
      (alter model assoc-in [:events event-id] event)
      (alter model assoc :last-event-id event-id)
      event-id)))
+
+(defn- current-time []
+  "Get the current time in milliseconds."
+  (System/currentTimeMillis))
 
 (defn- make-event [task-id errors & deltas]
   {:pre [(even? (count deltas))]}
@@ -103,7 +112,7 @@
          task (assoc (make-task type options) :id task-id)]
      (alter model assoc-in [:tasks task-id] task)
      (alter model assoc :last-task-id task-id)
-     (update-task! task-id :state :new))))
+     (dispatch-task! (update-task! task-id :state :new)))))
 
 (defn cancel-task! [id]
   "Cancel a task by ID."
@@ -115,8 +124,12 @@
 
 (defn get-task [id]
   "Get a specific task from the task registry by id."
-  (get-in @model [:tasks id]))
+  (get (get-tasks) id))
 
 (defn get-events []
   "Get the event registry."
   (:events @model))
+
+(defn get-event [id]
+  "Get a specific event from the event registry by id."
+  (get (get-events) id))

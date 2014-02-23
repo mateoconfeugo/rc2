@@ -6,6 +6,7 @@
            [rc2.lib.descriptor.delta :as delta]
            [rc2.lib.driver.pololu :as pol]
            [rc2.web.server.api :as api]
+           [rc2.web.server.task :as task]
            [clojure.tools.cli :as cli])
   (:gen-class))
 
@@ -47,5 +48,7 @@
       (rbt/set-parameters! interface
                            {:velocity {:a max-velocity :b max-velocity :c max-velocity}
                             :acceleration {:a max-accel :b max-accel :c max-accel}}))
+    (println "Initializing task system")
+    (task/init-workers! 5)
     (api/start-api-server (Integer. port))
     (when-let [serial-port (:serial-port connection)] (serial/close serial-port))))
