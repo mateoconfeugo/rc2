@@ -27,19 +27,16 @@
 ;; TODO Handle task based on type.
 (defn- do-task! [task]
   "Perform a task."
-  ;; (println "Executing task: " task)
-  true
-  )
+  (println "Executing task: " task))
 
 (defn- dispatch-queues! [{:keys [dispatch serial parallel]}]
   "Allocate tasks from the 'dispatch queue into the 'serial and 'parallel queues."
   (go (loop [task (<! dispatch)]
         (when task
-          (cond
-           (= :serial (:affinity task)) (do (>! serial task)
-                                            (println "Dispatched" task "to serial"))
-           (= :parallel (:affinity task)) (do (>! parallel task)
-                                              (println "Dispatched" task "to parallel")))
+          (>! (case (:affinity task)
+                :serial serial
+                :parallel parallel)
+              task)
           (recur (<! dispatch))))))
 
 (defn- process-queue! [queue]
@@ -94,20 +91,28 @@
 (defn make-task [type {:keys [destination]}]
   "Create a new task."
   (let [template {:created (current-time) :type type :affinity :parallel}]
-    (cond
-     (= :move type) (assoc template :destination destination :affinity :serial))))
+    (case type
+     :move (assoc template :destination destination :affinity :serial))))
 
-(defn add-task! [type & {:keys [destination] :as kw-args}]
+(defn add-task! [type options]
   "Add a task to the task listing."
   (dosync
    (let [task-id (inc (:last-task-id @model))]
-     (alter model assoc-in [:tasks task-id] (make-task type kw-args))
+     (alter model assoc-in [:tasks task-id] (make-task type options))
      (alter model assoc :last-task-id task-id)
      (update-task! task-id :state :new))))
+
+(defn cancel-task! [id]
+  "Cancel a task by ID."
+  (update-task! id :state :canceled))
 
 (defn get-tasks []
   "Get the task registry."
   (:tasks @model))
+
+(defn get-task [id]
+  "Get a specific task from the task registry by id."
+  (get-in @model [:tasks id]))
 
 (defn get-events []
   "Get the event registry."

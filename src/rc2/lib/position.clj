@@ -6,7 +6,7 @@
 
 (type/def-alias Vec '[Number Number Number])
 
-;; TODO Figure out how to get these to work without :no-check
+;; TODO Migrate all of these functions from core/typed to Schema.
 (type/ann ^:no-check vec? (predicate Vec))
 (defn vec? [coord]
   "Returns true if 'coord represents a vec in 3-space."

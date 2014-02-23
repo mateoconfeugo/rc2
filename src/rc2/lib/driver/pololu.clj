@@ -11,8 +11,9 @@
 ;; and the angles produced when these duty cycles are applied to servo. Positive angles are when the
 ;; servo arm rotates counter clockwise (when looking at the front/top of the servo) unless :inverted
 ;; is true.
-;; TODO I have a hunch that these are wrong; they need to be verified again. It would be nice to
-;; have a tool that lets you create these values interactively.
+
+;; TODO I have a hunch that these calibration values are wrong; they need to be verified
+;; again. It would be nice to have a tool that lets you create these values interactively.
 (def default-calibration {:low_usec 985
                           :high_usec 1995
                           :low_angle -0.96
@@ -134,4 +135,7 @@
       (set-velocities! interface velocities))
     (when-let [accelerations (:acceleration parameters)]
       (println "Setting accelerations to" accelerations)
-      (set-accelerations! interface accelerations))))
+      (set-accelerations! interface accelerations)))
+  ;; TODO Consistency check - verify that the calibration values are well-formatted.
+  (calibrate! [interface calibrations]
+    (assoc interface :calibrations calibrations)))

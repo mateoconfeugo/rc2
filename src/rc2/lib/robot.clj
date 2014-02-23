@@ -32,7 +32,8 @@
                    shut-down! [RobotDriver -> nil]
                    take-pose! [RobotDriver RobotPose -> nil]
                    set-tool-state! [RobotDriver Keyword Keyword -> nil]
-                   set-parameters! [RobotDriver (IPersistentMap Keyword Any) -> nil])
+                   set-parameters! [RobotDriver (IPersistentMap Keyword Any) -> nil]
+                   calibrate! [RobotDriver (IPersistentMap Keyword Any) -> nil])
 (defprotocol> RobotDriver
   "Interface functions to move robots."
   (initialize! [interface] "Perform setup operations on the interface. Return true if initialization
@@ -41,4 +42,5 @@
   (take-pose! [interface pose] "Move the robot into the pose. Return true if the pose was reached
   successfully, false otherwise.")
   (set-tool-state! [interface tool state] "Change the tool state.")
-  (set-parameters! [interface parameters] "Set motor parameters on the interface."))
+  (set-parameters! [interface parameters] "Set motor parameters on the interface.")
+  (calibrate! [interface calibrations] "Set calibration settings for the interface."))

@@ -4,25 +4,27 @@ RC2 - "Robot Controller 2"
 The RC2 API is task-based, exposing mechanisms for adding, removing, and retrieving tasks. The API
 provides these via a REST-style API surface which interacts with a centralized task store.
 
-** REST Methods
+** API Methods
+Note: All of these paths are relative to /api/v1/.
 
-Tasks
-GET /tasks - lists tasks, along with their current state. Query parameters allow for sorting by
+*Tasks*
+=GET /tasks= - lists tasks, along with their current state. Query parameters allow for sorting by
 creation or update time, and filtering by state.
-GET /tasks/<task-id> - gets a specific task by ID.
-PUT /tasks - add a new task.
-DELETE /tasks/<task-id> - remove a task and halt further execution on it.
+=GET /tasks/<task-id>= - gets a specific task by ID.
+=POST /tasks= - add a new task.
+=DELETE /tasks/<task-id>= - remove a task and halt further execution on it.
 
-Events
-GET /events - lists events. Query parameters allow for sorting by creation time, or filtering by
+*Events*
+=GET /events= - lists events. Query parameters allow for sorting by creation time, or filtering by
 state or task.
-GET /events/<event-id> - gets a specific event by ID.
+=GET /events/<event-id>= - gets a specific event by ID.
 
-Note: events cannot be deleted or added by the user; they are managed by the system.
+/Note: events cannot be deleted or added by the user; they are managed by the system./
 
-GET /status - get the current state of the robot.
+*Metadata*
+=GET /status= - get the current state of the robot.
 
-GET /meta - get metadata about the current server, such as uptime and load.
+=GET /meta= - get metadata about the current server, such as uptime and load.
 
 * Architectural notes
 
