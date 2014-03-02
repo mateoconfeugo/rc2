@@ -8,6 +8,7 @@
                      :tasks {}
                      :last-task-id 0
                      :device-status {}}))
+(defonce handlers (atom {}))
 
 (def initialized (atom false))
 (defonce queues {:dispatch (chan 50)
@@ -26,11 +27,19 @@
 
 (declare update-task!)
 
-;; TODO Handle task based on type.
-(defn- do-task! [task]
-  "Perform a task."
-  (println "Executing task: " task)
-  (update-task! (:id task) :state :complete))
+(defn set-handler [type handler]
+  "Set the handler for tasks of the given 'type."
+  (swap! handlers assoc type handler))
+
+;; This function is intended to be used only within this module. It is public only for unit testing.
+(defn do-task! [task handlers]
+  "Performs a task and returns the state updates which should be applied to it."
+  (if-let [handler (get handlers (:type task))]
+    (if (handler task)
+      {:state :complete}
+      ;; TODO Decide on how handlers should indicate error details to the dispatcher
+      {:state :failed})
+    {:state :failed :errors [(str "No handler for task type " (:type task))]}))
 
 (defn- dispatch-queues! [{:keys [dispatch serial parallel]}]
   "Allocate tasks from the 'dispatch queue into the 'serial and 'parallel queues."
@@ -46,7 +55,8 @@
   "Process tasks from the queue until it is closed."
   (go (loop [task (<! queue)]
         (when task
-          (do-task! task)
+          (update-task! (:id task) :state :processing)
+          (update-task! (:id task) (do-task! task @handlers))
           (recur (<! queue))))))
 
 (defn init-workers! [num-parallel]
@@ -99,11 +109,15 @@
      (alter model assoc-in [:tasks task-id] updated-task)
      original-task)))
 
-(defn make-task [type {:keys [destination]}]
+(defn make-task [type options]
   "Create a new task."
-  (let [template {:created (current-time) :type type :affinity :parallel}]
+  (let [template {:created (current-time) :type type}
+        task (merge options template)]
+    ;; TODO This should probably dispatch out to type-specific functions so we can validate
     (case type
-     :move (assoc template :destination destination :affinity :serial))))
+      :move (assoc task :affinity :serial)
+      :connect (assoc task :affinity :serial)
+      :calibrate (assoc task :affinity :serial))))
 
 (defn add-task! [type options]
   "Add a task to the task listing."

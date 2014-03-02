@@ -23,18 +23,16 @@ state or task.
 
 *Metadata*
 =GET /status= - get the current state of the robot.
-
 =GET /meta= - get metadata about the current server, such as uptime and load.
 
-* Architectural notes
-
+* Conceptual overview
 ** Tasks and events
 *** Tasks
 When a new task is received, it is added to a task listing and assigned an ID. The task listing is a
-mapping from ID to task description, where each task's ID is /sequential/ and /unique/. The listing
-tracks the next ID available for assignment.
+mapping from ID to task description, where each task's ID is both /sequential/ and /unique/. The
+listing tracks the next ID available for assignment.
 
-#+NAME Task structure
+#+NAME Task structure example
 #+begin_src clojure
   {
    ;; Required keys
@@ -56,7 +54,7 @@ Events are used to log state transitions for each task. They are tracked in a ma
 tasks, from the event ID to the event description. Each event is associated with a single task, and
 describes a single state transition for that task.
 
-#+NAME Event structure
+#+NAME Event structure example
 #+begin_src clojure
   {
    :id 1 ;; ID of this event
@@ -154,7 +152,41 @@ no longer be cancelled.
   +----------+
   
 #+end_src
-  
-  
+
+* Details
+** Task fields
+When creating a new task, the programmer specifies the task type and any additional parameters
+required by that type. The currently supported task types are :move, :connect.
+
+*** Movement tasks
+Movement tasks direct the robot to change its position in the workspace. These tasks always have
+a :serial affinity, meaning they must be executed sequentially.
+- Type: :move
+- Affinity: :serial
+- Parameters:
+  - destination: A map of coordinate pairs describing the destination location. The format of this
+    map is determined by the currently installed RobotDescriptor.
+  - speeds: A map containing the desired motor operating speeds and accelerations. This map should
+    follow the convention set by the currently installed RobotDriver.
+
+*** Connection tasks
+Connection tasks direct the server to switch its connection to a new device. Only one connection can
+be maintained per server and these tasks always have a :serial affinity.
+- Type: :connect
+- Affinity: :serial
+- Parameters:
+  - device: The path to the device to connect to.
+  - device-type: The type of device. Currently, only :serial is supported.
+  - baud-rate: For serial devices, the speed of the connection.
+
+*** Calibration tasks
+Calibration tasks set calibration parameters on the currently installed RobotDriver. It is up to the
+driver to determine what to do with the settings. It is permissible for a driver to instruct the
+robot to calibrate itself if possible, or to take settings directly via the API.
+- Type: :calibrate
+- Affinity: :serial
+- Parameters: A map of calibration values. These are device specific and it is up to the programmer
+  to understand what the driver expects.
+
 * Misc notes
  - Might be worthwhile to see if we can use Datomic to maintain our data structure for task state.

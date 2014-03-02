@@ -17,7 +17,6 @@
 (def api-server (atom nil))
 
 (defroutes api-routes
-  (GET "/" [] "RC2 API Server V1.0")
   (ANY "/api/v1/tasks" []
        (resource :available-media-types ["application/json"]
                  :allowed-methods [:post :get]
@@ -59,6 +58,7 @@
                  :handle-ok (fn [_] {:status :online
                                      :uptime (int (/ (- (System/currentTimeMillis)
                                                         start-time) 1000))})))
+  (route/resources "/")
   (route/not-found "Not Found"))
 
 (def api (-> api-routes
