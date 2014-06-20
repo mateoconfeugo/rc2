@@ -18,7 +18,7 @@
   "Parse command line arguments into a map of their values."
   (cli/cli args
            ["-s" "--serial" "Serial port to use"]
-           ["-p" "--port" "Networks port to listen on"]))
+           ["-p" "--port" "Network port to listen on"]))
 
 (defn connect [port & {:keys [descriptor calibrations]
                        :or {descriptor (delta/->DeltaDescriptor 10.2 15 3.7 4.7)

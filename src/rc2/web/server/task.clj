@@ -27,7 +27,7 @@
 
 (declare update-task!)
 
-(defn set-handler [type handler]
+(defn set-handler! [type handler]
   "Set the handler for tasks of the given 'type."
   (swap! handlers assoc type handler))
 
