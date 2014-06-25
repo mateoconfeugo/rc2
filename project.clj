@@ -5,6 +5,7 @@
             :url "https://www.gnu.org/licenses/gpl-2.0.html"}
   :dependencies [
                  [compojure "1.1.3"]
+                 [cljs-ajax "0.2.6"]
                  [gloss "0.2.2"]
                  [http-kit "2.1.16"]
                  [javax.servlet/servlet-api "2.5"]
