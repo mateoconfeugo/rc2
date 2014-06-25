@@ -3,9 +3,11 @@
             [rc2.api :as api])
   (:use-macros [dommy.macros :only [node sel sel1]]))
 
-(def app-state (atom {:mouse {:location {} :buttons {0 :up 1 :up 2 :up}}}))
-(def default-color "#C9EAF9";"#1AAE7C"
-  )
+(def app-state (atom {:mouse {:location {} :buttons {0 :up 1 :up 2 :up}}
+                      :waypoints ["foo" "bar" "baz"]
+                      :events []}))
+
+(def default-color "#C9EAF9") ;;"#1AAE7C"
 
 ;; Conversion utilities
 (defn get-canvas [] (sel1 :#target))
@@ -51,6 +53,10 @@
         canvas (get-canvas)]
     (.clearRect ctx 0 0 (.-width canvas) (.-height canvas))))
 
+(defn text-size [context text]
+  {:width (.-width (.measureText context text))
+   :height (.-height (.measureText context text))})
+
 (defn draw-crosshairs [{:keys [x y]}]
   (let [context (get-context)]
     (set! (.-strokeStyle context) default-color)
@@ -71,34 +77,39 @@
     (set! (.-fillStyle context) default-color)
     (set! (.-font context) "14px monospace")
     (let [text "CONNECTED"
-          x (- (.-width canvas) (.-width (.measureText context text)) 30)
+          x (- (.-width canvas) (:width (text-size context text)) 30)
           y 30]
       (.fillText context text x y))))
 
 (defn draw-section [& {:keys [title x y items]}]
+  "Draw a section of text on the screen containing the given items.
+
+A section consists of a title followed by each item in items. If there is not enough space to draw
+all of the items, items from the end of the list will be preferred." ;; Scrolling?
   (let [canvas (get-canvas)
         context (get-context)]
     (set! (.-fillStyle context) default-color)
     (set! (.-font context) "14px monospace")
     (.fillText context title x y)
-    (draw-line context (- x 2) (+ y 3) (+ x 250 (.-width (.measureText context title))) (+ y 3))))
+    (draw-line context (- x 2) (+ y 3) (+ x 250 (:width (text-size context title))) (+ y 3))
+    (doseq [[item offset] (map list items (iterate (fn [offset] (+ offset 18)) (- y 5)))]
+      (.fillText context (str item) x (+ y offset)))))
 
 ;; TODO Draw waypoint details
-(defn draw-waypoints []
-  (draw-section :title "WAYPOINTS" :x 30 :y 30))
+(defn draw-waypoints [waypoints]
+  (draw-section :title "WAYPOINTS" :x 30 :y 30 :items waypoints))
 
 ;; TODO Draw event details
-(defn draw-event-log []
-  (draw-section :title "EVENT LOG" :x 30 :y (+ 30 (/ (.-height (get-canvas)) 2)))
-  )
+(defn draw-event-log [events]
+  (draw-section :title "EVENT LOG" :x 30 :y (+ 30 (/ (.-height (get-canvas)) 2)) :items events))
 
 (defn draw [state]
   (clear-canvas!)
   (draw-crosshairs (canvas-coords (get-in state [:mouse :location])))
   (draw-coordinates (canvas-coords (get-in state [:mouse :location])))
   (draw-connection-info)
-  (draw-waypoints)
-  (draw-event-log))
+  (draw-waypoints (get-in state [:waypoints]))
+  (draw-event-log (get-in state [:events])))
 
 (defn update-state! []
   "Update state in the model."
