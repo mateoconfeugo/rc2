@@ -40,6 +40,12 @@
     (set! (.-fillStyle ctx) (color->style color))
     (.fillRect ctx x y width height)))
 
+(defn draw-line [context x1 y1 x2 y2]
+  (.beginPath context)
+  (.moveTo context x1 y1)
+  (.lineTo context x2 y2)
+  (.stroke context))
+
 (defn clear-canvas! []
   (let [ctx (get-context)
         canvas (get-canvas)]
@@ -49,14 +55,8 @@
   (let [context (get-context)]
     (set! (.-strokeStyle context) default-color)
     (set! (.-lineWidth context) 1.0)
-    (.beginPath context)
-    (.moveTo context 0 y)
-    (.lineTo context (.-width (.-canvas context)) y)
-    (.stroke context)
-    (.beginPath context)
-    (.moveTo context x 0)
-    (.lineTo context x (.-height (.-canvas context)))
-    (.stroke context)))
+    (draw-line context 0 y (.-width (.-canvas context)) y)
+    (draw-line context x 0 x (.-height (.-canvas context)))))
 
 (defn draw-coordinates [{:keys [x y] :as coords}]
   (let [context (get-context)]
@@ -64,6 +64,7 @@
     (set! (.-font context) "12px monospace")
     (.fillText context (str coords) (+ x 10) (- y 10))))
 
+;; TODO Set up heartbeat ping to server and update connection text based on it
 (defn draw-connection-info []
   (let [canvas (get-canvas)
         context (get-context)]
@@ -74,12 +75,35 @@
           y 30]
       (.fillText context text x y))))
 
+;; TODO Draw waypoint details
+(defn draw-waypoints []
+  (let [context (get-context)
+        text "WAYPOINTS"
+        y 30]
+    (set! (.-fillStyle context) default-color)
+    (set! (.-font context) "14px monospace")
+    (.fillText context text 30 y)
+    (draw-line context 28 (+ 3 y) (+ 30 250 (.-width (.measureText context text))) (+ 3 y))))
+
+;; TODO Draw event details
+(defn draw-event-log []
+  (let [canvas (get-canvas)
+        context (get-context)
+        text "EVENT LOG"
+        y (+ 30 (/ (.-height canvas) 2))
+        ]
+    (set! (.-fillStyle context) default-color)
+    (set! (.-font context) "14px monospace")
+    (.fillText context text 30 y)
+    (draw-line context 28 (+ 3 y) (+ 30 250 (.-width (.measureText context text))) (+ 3 y))))
+
 (defn draw [state]
   (clear-canvas!)
   (draw-crosshairs (canvas-coords (get-in state [:mouse :location])))
   (draw-coordinates (canvas-coords (get-in state [:mouse :location])))
   (draw-connection-info)
-  )
+  (draw-waypoints)
+  (draw-event-log))
 
 (defn update-state! []
   "Update state in the model."
@@ -120,4 +144,5 @@
   (set! (.-onmousemove (get-canvas)) on-mouse-move!)
   (set! (.-onmouseup (get-canvas)) on-mouse-up!)
   (set! (.-onmousedown (get-canvas)) on-mouse-down!)
-  (set! (.-onresize js/window) on-resize!))
+  (set! (.-onresize js/window) on-resize!)
+  (on-state-change!))
