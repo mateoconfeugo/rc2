@@ -75,27 +75,22 @@
           y 30]
       (.fillText context text x y))))
 
-;; TODO Draw waypoint details
-(defn draw-waypoints []
-  (let [context (get-context)
-        text "WAYPOINTS"
-        y 30]
+(defn draw-section [& {:keys [title x y items]}]
+  (let [canvas (get-canvas)
+        context (get-context)]
     (set! (.-fillStyle context) default-color)
     (set! (.-font context) "14px monospace")
-    (.fillText context text 30 y)
-    (draw-line context 28 (+ 3 y) (+ 30 250 (.-width (.measureText context text))) (+ 3 y))))
+    (.fillText context title x y)
+    (draw-line context (- x 2) (+ y 3) (+ x 250 (.-width (.measureText context title))) (+ y 3))))
+
+;; TODO Draw waypoint details
+(defn draw-waypoints []
+  (draw-section :title "WAYPOINTS" :x 30 :y 30))
 
 ;; TODO Draw event details
 (defn draw-event-log []
-  (let [canvas (get-canvas)
-        context (get-context)
-        text "EVENT LOG"
-        y (+ 30 (/ (.-height canvas) 2))
-        ]
-    (set! (.-fillStyle context) default-color)
-    (set! (.-font context) "14px monospace")
-    (.fillText context text 30 y)
-    (draw-line context 28 (+ 3 y) (+ 30 250 (.-width (.measureText context text))) (+ 3 y))))
+  (draw-section :title "EVENT LOG" :x 30 :y (+ 30 (/ (.-height (get-canvas)) 2)))
+  )
 
 (defn draw [state]
   (clear-canvas!)
