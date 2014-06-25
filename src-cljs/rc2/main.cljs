@@ -154,13 +154,10 @@ all of the items, items from the end of the list will be preferred." ;; Scrollin
   (let [now (current-time)
         latest (get-in @app-state [:connection :last-heartbeat])]
     (when (< heartbeat-interval (- now latest))
-      (.log js/console "Sending heartbeat request")
       (api/get-meta (fn [_]
-                      (.log js/console "Got heartbeat")
                       (swap! app-state assoc :connection {:last-heartbeat (current-time)
                                                           :connected true}))
                     (fn [_]
-                      (.log js/console "No heartbeat, switching to offline mode")
                       (swap! app-state update-in [:connection :connected] (constantly false)))))))
 
 (defn on-timer-tick! []
