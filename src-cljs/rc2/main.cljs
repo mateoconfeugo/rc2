@@ -55,6 +55,11 @@
   (.lineTo context x2 y2)
   (.stroke context))
 
+(defn draw-circle [context x y r]
+  (.beginPath context)
+  (.arc context x y r 0 (* 2 (.-PI js/Math)))
+  (.stroke context))
+
 (defn clear-canvas! []
   (let [ctx (get-context)
         canvas (get-canvas)]
@@ -105,7 +110,11 @@ all of the items, items from the end of the list will be preferred." ;; Scrollin
 
 ;; TODO Draw waypoint details
 (defn draw-waypoints [waypoints]
-  (draw-section :title "WAYPOINTS" :x 30 :y 30 :items waypoints))
+  (draw-section :title "WAYPOINTS" :x 30 :y 30 :items waypoints)
+  (let [context (get-context)]
+    (doseq [wp waypoints]
+      (let [loc (:location wp)]
+        (draw-circle context (:x loc) (:y loc) 5)))))
 
 ;; TODO Draw event details
 (defn draw-event-log [events]
