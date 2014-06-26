@@ -4,16 +4,23 @@
   (:use-macros [dommy.macros :only [node sel sel1]]))
 
 (def timer-id (atom nil))
-(def app-state (atom {:mouse {:location {} :buttons {0 :up 1 :up 2 :up}}
+(def app-state (atom {:mouse {
+                              :location {:x 0 :y 0}
+                              :buttons {0 :up 1 :up 2 :up}
+                              :previous-buttons {0 :up 1 :up 2 :up}
+                              }
                       :waypoints []
                       :events []
-                      :connection {:last-heartbeat 0
-                                   :connected false}}))
+                      :connection {
+                                   :last-heartbeat 0
+                                   :connected false
+                                   }
+                      :time 0
+                      }))
 
 (def default-color "#C9EAF9") ;;"#1AAE7C"
-(def timer-interval (/ 1000 30))
+(def framerate 30)
 (def heartbeat-interval (* 1000 3))
-
 
 ;; Conversion utilities
 (defn get-canvas [] (sel1 :#target))
@@ -141,8 +148,7 @@ all of the items, items from the end of the list will be preferred." ;; Scrollin
 (defn update-waypoints [mouse waypoints]
   (if (and (= :down (get (:buttons mouse) 0))
            (= :up (get (:previous-buttons mouse) 0)))
-    (do (.log js/console "State" (str @app-state))
-        (conj waypoints {:location (:location mouse)}))
+    (conj waypoints {:location (:location mouse)})
     waypoints))
 
 (def pre-draw-transforms
@@ -156,13 +162,21 @@ all of the items, items from the end of the list will be preferred." ;; Scrollin
    [[:mouse :buttons] [:mouse :previous-buttons] copy]
    ])
 
+(defn merge-maps [result latter]
+  "Merge two maps into one, preserving overall structure."
+  (if (and (map? result) (map? latter))
+    (merge-with merge-maps result latter)
+    latter))
+
 (defn apply-state-transforms [state transforms]
   "Apply a series of transforms of the form [in-path out-path transform] to a state map and return
   the updated map."
-  (apply merge (map (fn [[in-path out-path fun]]
-                      (update-in state out-path
-                                 (fn [out in] (fun in out)) (get-in state in-path)))
-                    transforms)))
+  (let [state-updates (map (fn [[in-path out-path fun]]
+                             (assoc-in {} out-path
+                                       (fun (get-in state in-path)
+                                            (get-in state out-path))))
+                           transforms)]
+    (apply merge-with merge-maps state state-updates)))
 
 (defn on-state-change! []
   "Perform pre-draw transformations to application state."
@@ -223,4 +237,4 @@ all of the items, items from the end of the list will be preferred." ;; Scrollin
   (set! (.-onmousedown (get-canvas)) on-mouse-down!)
   (set! (.-onresize js/window) on-resize!)
   (on-state-change!)
-  (swap! timer-id #(.setInterval js/window on-timer-tick! timer-interval)))
+  (swap! timer-id #(.setInterval js/window on-timer-tick! (/ 1000 framerate))))
