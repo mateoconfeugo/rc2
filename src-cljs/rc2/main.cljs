@@ -5,7 +5,7 @@
 
 (def timer-id (atom nil))
 (def app-state (atom {:mouse {:location {} :buttons {0 :up 1 :up 2 :up}}
-                      :waypoints ["foo" "bar" "baz"]
+                      :waypoints []
                       :events []
                       :connection {:last-heartbeat 0
                                    :connected false}}))
@@ -119,36 +119,73 @@ all of the items, items from the end of the list will be preferred." ;; Scrollin
   (draw-waypoints (get-in state [:waypoints]))
   (draw-event-log (get-in state [:events])))
 
-;; Event handlers. Computed state changes go in on-state-change!.
+;; Event handlers. Add new handlers for state paths in {pre,pos}-draw-transforms
+
+;; State transform functions are registered along with an input path and an output path. The
+;; function is applied to the current (last-frame) state of the input and output paths and the
+;; returned value is stored in the output path.
+
+(defn copy [in out] in)
 
 (defn current-time [] (.getTime (js/Date.)))
 
+(defn update-waypoints [mouse waypoints]
+  (if (and (= :down (get (:buttons mouse) 0))
+           (= :up (get (:previous-buttons mouse) 0)))
+    (do (.log js/console "State" (str @app-state))
+        (conj waypoints {:location (:location mouse)}))
+    waypoints))
+
+(def pre-draw-transforms
+  [
+   [[:time] [:time] (fn [_ _] (current-time))]
+   [[:mouse] [:waypoints] update-waypoints]
+   ])
+
+(def post-draw-transforms
+  [
+   [[:mouse :buttons] [:mouse :previous-buttons] copy]
+   ])
+
+(defn apply-state-transforms [state transforms]
+  "Apply a series of transforms of the form [in-path out-path transform] to a state map and return
+  the updated map."
+  (apply merge (map (fn [[in-path out-path fun]]
+                      (update-in state out-path
+                                 (fn [out in] (fun in out)) (get-in state in-path)))
+                    transforms)))
+
 (defn on-state-change! []
-  (swap! app-state
-         (fn [state]
-           (-> state
-               (update-in [:time] current-time))))
-  )
+  "Perform pre-draw transformations to application state."
+  (swap! app-state apply-state-transforms pre-draw-transforms))
+
+(defn post-draw []
+  "Perform post-draw transformations to application state."
+  (swap! app-state apply-state-transforms post-draw-transforms))
+
+(defn on-event! []
+  (on-state-change!)
+  (post-draw))
 
 (defn on-mouse-move! [event]
   "Handle mouse movement events."
   (swap! app-state update-in [:mouse :location]
          (fn [m] (assoc m :x (.-clientX event) :y (.-clientY event))))
-  (on-state-change!))
+  (on-event!))
 
 (defn on-mouse-down! [event]
   "Handle mouse down events."
   (swap! app-state update-in [:mouse :buttons (.-button event)] (constantly :down))
-  (on-state-change!))
+  (on-event!))
 
 (defn on-mouse-up! [event]
   "Handle mouse up events."
   (swap! app-state update-in [:mouse :buttons (.-button event)] (constantly :up))
-  (on-state-change!))
+  (on-event!))
 
 (defn on-resize! [event]
   (size-canvas-to-window!)
-  (on-state-change!))
+  (on-event!))
 
 (defn check-heartbeat! []
   (let [now (current-time)
@@ -164,7 +201,8 @@ all of the items, items from the end of the list will be preferred." ;; Scrollin
   "Handle timer ticks by triggering redraw of the application."
   (check-heartbeat!)
   (on-state-change!)
-  (draw @app-state))
+  (draw @app-state)
+  (post-draw))
 
 (defn main []
   (api/get-meta (fn [data] (.log js/console "API server uptime:" (:uptime data)))
