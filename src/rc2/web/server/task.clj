@@ -15,15 +15,15 @@
                  :serial (chan 50)
                  :parallel (chan 50)})
 
-(def Task {(s/required-key :id) s/Number
+(def Task {(s/required-key :id) s/Num
            (s/required-key :type) s/Keyword
-           (s/required-key :created) s/Number
-           (s/required-key :update) s/Number
+           (s/required-key :created) s/Num
+           (s/required-key :update) s/Num
            (s/required-key :state) s/Keyword
            :affinity s/Keyword
-           :destination {(s/required-key :x) s/Number
-                         (s/required-key :y) s/Number
-                         (s/required-key :z) s/Number}})
+           :destination {(s/required-key :x) s/Num
+                         (s/required-key :y) s/Num
+                         (s/required-key :z) s/Num}})
 
 (declare update-task!)
 

@@ -1,11 +1,12 @@
 (ns rc2.main
   (:require [dommy.core :as dommy]
-            [rc2.api :as api])
+            [rc2.api :as api]
+            [schema.core :as s])
   (:use-macros [dommy.macros :only [node sel sel1]]))
 
 (def timer-id (atom nil))
 (def app-state (atom {:mouse {
-                              :location {:x 0 :y 0}
+                              :location {:x 0 :y 0 :type :world}
                               :buttons {0 :up 1 :up 2 :up}
                               :previous-buttons {0 :up 1 :up 2 :up}
                               }
@@ -18,9 +19,14 @@
                       :time 0
                       }))
 
-(def default-color "#C9EAF9") ;;"#1AAE7C"
+(def default-color "#C9EAF9")
+(def dark-color "#627279")
 (def framerate 30)
 (def heartbeat-interval (* 1000 3))
+
+(def WorldCoordinate {:x s/Num :y s/Num :type (s/eq :world)})
+(def CanvasCoordinate {:x s/Num :y s/Num :type (s/eq :canvas)})
+(def Coordinate (s/either WorldCoordinate CanvasCoordinate))
 
 ;; Conversion utilities
 (defn get-canvas [] (sel1 :#target))
@@ -37,12 +43,33 @@
     (set! (.-width canvas) window-width)
     (set! (.-height canvas) window-height)))
 
-(defn canvas-coords [{:keys [x y]}]
+(defn screen->canvas [{:keys [x y]}]
   "Convert screen coordinates to canvas coordinates."
   (let [canvas (get-canvas)
         bounding-box (.getBoundingClientRect canvas)]
     {:x (* (- x (.-left bounding-box)) (/ (.-width canvas) (.-width bounding-box)))
-     :y (* (- y (.-top bounding-box)) (/ (.-height canvas) (.-height bounding-box)))}))
+     :y (* (- y (.-top bounding-box)) (/ (.-height canvas) (.-height bounding-box)))
+     :type :canvas}))
+
+(defn world->canvas [{:keys [x y] :as coord}]
+  "Convert world coordinates to canvas coordinates."
+  (s/validate Coordinate coord)
+  (if (keyword-identical? :world (:type coord))
+    (let [canvas (get-canvas)]
+      {:x (+ x (/ (.-width canvas) 2))
+       :y (+ (- y) (/ (.-height canvas) 2))
+       :type :canvas})
+    coord))
+
+(defn canvas->world [{:keys [x y] :as coord}]
+  "Convert canvas coordinates to world coordinates."
+  (s/validate Coordinate coord)
+  (if (keyword-identical? :canvas (:type coord))
+    (let [canvas (get-canvas)]
+      {:x (- x (/ (.-width canvas) 2))
+       :y (- (- y (/ (.-height canvas) 2)))
+       :type :world})
+    coord))
 
 (defn- color->style [{:keys [r g b a]}]
   "Convert a map of rgba values to a color style for use in canvas elements."
@@ -51,21 +78,26 @@
 ;; Drawing functions. These functions should not modify application state, they should only render
 ;; it to the screen. Updates to state should happen in on-state-change! below.
 
-(defn draw-rect! [[width height] [x y] color]
-  (let [ctx (get-context)]
+(defn draw-rect! [[width height] coord color]
+  (let [ctx (get-context)
+        {:keys [x y]} (world->canvas coord)]
     (set! (.-fillStyle ctx) (color->style color))
     (.fillRect ctx x y width height)))
 
-(defn draw-line [context x1 y1 x2 y2]
-  (.beginPath context)
-  (.moveTo context x1 y1)
-  (.lineTo context x2 y2)
-  (.stroke context))
+(defn draw-line [context c1 c2 color]
+  (let [{x1 :x y1 :y} (world->canvas c1)
+        {x2 :x y2 :y} (world->canvas c2)]
+    (set! (.-strokeStyle context) color)
+    (.beginPath context)
+    (.moveTo context x1 y1)
+    (.lineTo context x2 y2)
+    (.stroke context)))
 
-(defn draw-circle [context x y r]
-  (.beginPath context)
-  (.arc context x y r 0 (* 2 (.-PI js/Math)))
-  (.stroke context))
+(defn draw-circle [context coord r]
+  (let [{:keys [x y]} (world->canvas coord)]
+    (.beginPath context)
+    (.arc context x y r 0 (* 2 (.-PI js/Math)))
+    (.stroke context)))
 
 (defn clear-canvas! []
   (let [ctx (get-context)
@@ -76,18 +108,26 @@
   {:width (.-width (.measureText context text))
    :height (.-height (.measureText context text))})
 
-(defn draw-crosshairs [{:keys [x y]}]
-  (let [context (get-context)]
-    (set! (.-strokeStyle context) default-color)
-    (set! (.-lineWidth context) 1.0)
-    (draw-line context 0 y (.-width (.-canvas context)) y)
-    (draw-line context x 0 x (.-height (.-canvas context)))))
+(defn draw-crosshairs
+  ([coord] (draw-crosshairs coord default-color))
+  ([coord color]
+     (let [context (get-context)
+           {:keys [x y] :as canvas-coord} (world->canvas coord)]
+       (set! (.-lineWidth context) 1.0)
+       (draw-line context (assoc canvas-coord :x 0)
+                  (assoc canvas-coord :x (.-width (.-canvas context))) color)
+       (draw-line context (assoc canvas-coord :y 0)
+                  (assoc canvas-coord :y (.-height (.-canvas context))) color))))
 
-(defn draw-coordinates [{:keys [x y] :as coords}]
-  (let [context (get-context)]
+(defn draw-coordinates [coord]
+  (let [context (get-context)
+        world-coords (canvas->world coord)
+        {:keys [x y]} (world->canvas coord)]
     (set! (.-fillStyle context) default-color)
     (set! (.-font context) "12px monospace")
-    (.fillText context (str coords) (+ x 10) (- y 10))))
+    (.fillText context
+               (str "(" (:x world-coords) "," (:y world-coords) "," (:type world-coords) ")")
+               (+ x 10) (- y 10))))
 
 ;; TODO Set up heartbeat ping to server and update connection text based on it
 (defn draw-connection-info [connection time]
@@ -101,36 +141,42 @@
       (.fillText context text x y)
       (.fillText context (str "TIME " time) (- x 60) (+ 30 y)))))
 
-(defn draw-section [& {:keys [title x y items]}]
+(defn draw-section [& {:keys [title coord items]}]
   "Draw a section of text on the screen containing the given items.
 
 A section consists of a title followed by each item in items. If there is not enough space to draw
 all of the items, items from the end of the list will be preferred." ;; Scrolling?
   (let [canvas (get-canvas)
-        context (get-context)]
+        context (get-context)
+        {:keys [x y]} (world->canvas coord)]
     (set! (.-fillStyle context) default-color)
     (set! (.-font context) "14px monospace")
     (.fillText context title x y)
-    (draw-line context (- x 2) (+ y 3) (+ x 250 (:width (text-size context title))) (+ y 3))
+    (draw-line context {:x (- x 2) :y (+ y 3) :type :canvas}
+               {:x (+ x 250 (:width (text-size context title))) :y (+ y 3) :type :canvas}
+               default-color)
     (doseq [[item offset] (map list items (iterate (fn [offset] (+ offset 18)) (- y 5)))]
       (.fillText context (str item) x (+ y offset)))))
 
 ;; TODO Draw waypoint details
 (defn draw-waypoints [waypoints]
-  (draw-section :title "WAYPOINTS" :x 30 :y 30 :items waypoints)
+  (draw-section :title "WAYPOINTS" :coord {:x 30 :y 30 :type :canvas} :items waypoints)
   (let [context (get-context)]
     (doseq [wp waypoints]
       (let [loc (:location wp)]
-        (draw-circle context (:x loc) (:y loc) 5)))))
+        (draw-circle context loc 5)))))
 
 ;; TODO Draw event details
 (defn draw-event-log [events]
-  (draw-section :title "EVENT LOG" :x 30 :y (+ 30 (/ (.-height (get-canvas)) 2)) :items events))
+  (draw-section :title "EVENT LOG"
+                :coord {:x 30 :y (+ 30 (/ (.-height (get-canvas)) 2)) :type :canvas}
+                :items events))
 
 (defn draw [state]
   (clear-canvas!)
-  (draw-crosshairs (canvas-coords (get-in state [:mouse :location])))
-  (draw-coordinates (canvas-coords (get-in state [:mouse :location])))
+  (draw-crosshairs {:x 0 :y 0 :type :world} dark-color)
+  (draw-crosshairs (get-in state [:mouse :location]))
+  (draw-coordinates (get-in state [:mouse :location]))
   (draw-connection-info (get-in state [:connection]) (get-in state [:time]))
   (draw-waypoints (get-in state [:waypoints]))
   (draw-event-log (get-in state [:events])))
@@ -193,7 +239,7 @@ all of the items, items from the end of the list will be preferred." ;; Scrollin
 (defn on-mouse-move! [event]
   "Handle mouse movement events."
   (swap! app-state update-in [:mouse :location]
-         (fn [m] (assoc m :x (.-clientX event) :y (.-clientY event))))
+         (fn [m] (canvas->world (assoc m :x (.-clientX event) :y (.-clientY event) :type :canvas))))
   (on-event!))
 
 (defn on-mouse-down! [event]
