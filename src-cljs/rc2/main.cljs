@@ -7,6 +7,7 @@
 (def origin {:x 0 :y 0 :type :world})
 (def default-color "#C9EAF9")
 (def dark-color "#627279")
+(def grid-color "#2E3639")
 (def highlight-color "#FAC1B1")
 (def click-color "#00FF00")
 (def framerate 30)
@@ -32,8 +33,8 @@
                          :xform (constantly true)}
                         {:text "Stop" :target [:running] :hover false :click false
                          :xform (constantly false)}
-                        {:text "Reset" :target [:running] :hover false :click false
-                         :xform not}]
+                        {:text "Clear" :target [:waypoints] :hover false :click false
+                         :xform (constantly [])}]
               }
          :connection {
                       :last-heartbeat 0
@@ -199,6 +200,15 @@ Accepts the following keywords for their corresponding axes:
        (draw-line context (assoc canvas-coord :y 0)
                   (assoc canvas-coord :y (.-height (.-canvas context))) color))))
 
+(defn draw-grid []
+  (let [grid-spacing 50
+        vert-count (/ (:y (world-edge :top)) grid-spacing)
+        horiz-count (/ (:x (world-edge :right)) grid-spacing)
+        count (if (< vert-count horiz-count) horiz-count vert-count)]
+    ;; Draw crosshairs along the diagonal
+    (doseq [coord (map (fn [i] (->world (* 50 i) (* 50 i))) (range (- count) count))]
+      (draw-crosshairs coord grid-color))))
+
 (defn index-of [elt seq]
   (first (first (filter #(= elt (second %)) (map-indexed vector seq)))))
 
@@ -280,6 +290,7 @@ all of the items, items from the end of the list will be preferred." ;; Scrollin
 
 (defn draw [state]
   (clear-canvas!)
+  (draw-grid)
   (draw-crosshairs origin dark-color)
   (draw-crosshairs (get-in state [:mouse :location]))
   (draw-ui-elements (get-in state [:ui]))
