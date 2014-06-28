@@ -13,7 +13,7 @@
   (state/post-draw))
 
 (defn main []
-  (api/get-meta (fn [data] (.log js/console "API server uptime:" (:uptime data)))
+  (api/get-meta (fn [data] (.log js/console "API server uptime:" (get data "uptime")))
                 (fn [err] (.log js/console "Error getting server metadata:" (str err))))
   (.log js/console "Setting up")
   (draw/size-canvas-to-window!)
