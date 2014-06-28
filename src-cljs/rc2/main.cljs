@@ -7,10 +7,12 @@
 (def origin {:x 0 :y 0 :type :world})
 (def default-color "#C9EAF9")
 (def dark-color "#627279")
-(def button-size 100)
+(def highlight-color "#FAC1B1")
+(def click-color "#00FF00")
 (def framerate 30)
 (def heartbeat-interval (* 1000 3))
-
+(def button-size 100)
+(def waypoint-radius 5)
 (def timer-id (atom nil))
 (def app-state
   (atom {
@@ -26,12 +28,12 @@
               ;; transform function. When the button is clicked the transform function
               ;; is called with the value in this state tree at the 'target' path,
               ;; which is then replaced with the returned value.
-              :buttons [{:text "Start" :target [:running] :xform (constantly true)
-                         :hover false :click false}
-                        {:text "Stop" :target [:running] :xform (constantly false)
-                         :hover false :click false}
-                        {:text "Reset" :target [:running] :xform not
-                         :hover false :click false}]
+              :buttons [{:text "Start" :target [:running] :hover false :click false
+                         :xform (constantly true)}
+                        {:text "Stop" :target [:running] :hover false :click false
+                         :xform (constantly false)}
+                        {:text "Reset" :target [:running] :hover false :click false
+                         :xform not}]
               }
          :connection {
                       :last-heartbeat 0
@@ -98,6 +100,9 @@
                (- (- y (/ (.-height canvas) 2)))))
     coord))
 
+(defn pp-coord [{:keys [x y]}]
+  (str "[" x ", " y "]"))
+
 (defn coerce-coord [c1 c2]
   "Convert C2 to be the same type of coordinate as C1."
   (if (= :world (:type c1))
@@ -115,6 +120,13 @@
   (let [{x1 :x y1 :y} c1
         {x2 :x y2 :y} (coerce-coord c1 c2)]
     {:x (- x1 x2) :y (- y1 y2) :type (:type c1)}))
+
+(defn distance [c1 c2]
+  (let [{x1 :x y1 :y} c1
+        {x2 :x y2 :y} (coerce-coord c1 c2)
+        dx (- x1 x2)
+        dy (- y1 y2)]
+    (.sqrt js/Math (+ (* dx dx) (* dy dy)))))
 
 (defn world-edge [type]
   "Get a world coordinate lying at the extreme of an axis.
@@ -154,8 +166,9 @@ Accepts the following keywords for their corresponding axes:
     (.lineTo context x2 y2)
     (.stroke context)))
 
-(defn draw-circle [context coord r]
+(defn draw-circle [context coord r color]
   (let [{:keys [x y]} (world->canvas coord)]
+    (set! (.-strokeStyle context) color)
     (.beginPath context)
     (.arc context x y r 0 (* 2 (.-PI js/Math)))
     (.stroke context)))
@@ -194,7 +207,9 @@ Accepts the following keywords for their corresponding axes:
     (let [{:keys [coord width height]} (button-render-details buttons button)
           context (get-context)]
       (draw-rect! [width height] coord
-                  (if (:hover button) "#FF0000" default-color)))))
+                  (if (:hover button)
+                    (if (:click button) click-color highlight-color)
+                    default-color)))))
 
 (defn draw-ui-elements [elts]
   (let [{:keys [buttons]} elts]
@@ -207,7 +222,7 @@ Accepts the following keywords for their corresponding axes:
     (set! (.-fillStyle context) default-color)
     (set! (.-font context) "12px monospace")
     (.fillText context
-               (str "(" (:x world-coords) "," (:y world-coords) ")")
+               (pp-coord world-coords)
                (+ x 10) (- y 10))))
 
 (defn draw-connection-info [connection time]
@@ -233,7 +248,7 @@ Accepts the following keywords for their corresponding axes:
                 (.fillText context (str kv) x (+ y (* 20 i))))
               state)))))
 
-(defn draw-section [& {:keys [title coord items]}]
+(defn draw-section [& {:keys [title coord items xform] :or {xform identity}}]
   "Draw a section of text on the screen containing the given items.
 
 A section consists of a title followed by each item in items. If there is not enough space to draw
@@ -249,14 +264,18 @@ all of the items, items from the end of the list will be preferred." ;; Scrollin
                (->canvas (+ x 250 (:width (text-size context title))) (+ y 3))
                default-color)
     (doseq [[item offset] (map list items (iterate (fn [offset] (+ offset 18)) (- y 5)))]
-      (.fillText context (str item) x (+ y offset)))))
+      (set! (.-fillStyle context) (if (:highlight item) highlight-color default-color))
+      (.fillText context (str (xform item)) x (+ y offset)))))
 
 (defn draw-waypoints [waypoints]
-  (draw-section :title "WAYPOINTS" :coord (->canvas 30 30) :items waypoints)
+  (draw-section :title "WAYPOINTS" :coord (->canvas 30 30)
+                :items waypoints
+                :xform (fn [wp] (pp-coord (:location wp))))
   (let [context (get-context)]
     (doseq [wp waypoints]
       (let [loc (:location wp)]
-        (draw-circle context loc 5)))))
+        (draw-circle context loc waypoint-radius
+                     (if (:highlight wp) highlight-color default-color))))))
 
 (defn draw-event-log [events]
   (draw-section :title "EVENT LOG"
@@ -282,15 +301,49 @@ all of the items, items from the end of the list will be preferred." ;; Scrollin
 ;; (last-frame) state of the input and output paths and the returned value is stored in the output
 ;; path.
 
+(defn merge-maps [result latter]
+  "Merge two maps into one, preserving overall structure."
+  (if (and (map? result) (map? latter))
+    (merge-with merge-maps result latter)
+    latter))
+
+(defn apply-state-transforms [state transforms]
+  "Apply a series of transforms of the form [in-path out-path transform] to a state map and return
+  the updated map."
+  (reduce (fn [prev-state [in-path out-path xform]]
+            (let [xform-state (xform (get-in prev-state in-path)
+                                     (get-in prev-state out-path))]
+              (if (empty? out-path)
+                xform-state
+                (assoc-in prev-state out-path xform-state))))
+          state
+          transforms))
+
 (defn copy [in out] in)
+
+(defn debug-print [in out]
+  (.log js/console "debug-print in:" (str in) "out:" (str out))
+  out)
 
 (defn current-time [] (.getTime (js/Date.)))
 
-(defn update-waypoints [mouse waypoints]
-  (if (and (= :down (get (:buttons mouse) 0))
-           (= :up (get (:previous-buttons mouse) 0)))
-    (conj waypoints {:location (:location mouse)})
-    waypoints))
+(defn clicked? [mouse button]
+  (and (= :down (get (:buttons mouse) button))
+       (= :up (get (:previous-buttons mouse) button))))
+
+(defn handle-new-waypoints [state waypoints]
+  (let [mouse (:mouse state)
+        buttons (get-in state [:ui :buttons])]
+    (if (and (not (some #(:hover %) buttons))
+             (clicked? mouse 0))
+      (conj waypoints {:location (:location mouse) :highlight true})
+      waypoints)))
+
+(defn highlight-waypoints [mouse waypoints]
+  (let [mouse (canvas->world mouse)]
+    (map (fn [wp]
+           (assoc wp :highlight (< (distance (:location wp) mouse) (+ waypoint-radius 10))))
+         waypoints)))
 
 (defn in-button? [btns btn pos]
   (let [{:keys [coord width height]} (button-render-details btns btn)
@@ -303,38 +356,31 @@ all of the items, items from the end of the list will be preferred." ;; Scrollin
   (mapv (fn [btn] (assoc btn :hover (in-button? buttons btn mouse-pos))) buttons))
 
 (defn update-button-click [mouse buttons]
-  ;; TODO Update the clicked state of buttons
-  buttons
-  )
+  "Update the clicked state of UI buttons."
+  (mapv (fn [btn] (assoc btn :click (and (clicked? mouse 0) (:hover btn)))) buttons))
+
+(defn handle-button-actions [buttons state]
+  "Perform the on-click actions of the clicked UI buttons."
+  (let [transforms (filterv
+                    (comp not nil?)
+                    (mapv (fn [btn] [(:target btn) (:target btn) (:xform btn)])
+                          (filterv #(:click %) buttons)))]
+    (apply-state-transforms state transforms)))
 
 (def pre-draw-transforms
   [
    [[:time] [:time] (fn [_ _] (current-time))]
-   [[:mouse] [:waypoints] update-waypoints]
    [[:mouse :location] [:ui :buttons] update-button-hover]
-   [[:mouse] [:buttons] update-button-click]
+   [[:mouse] [:ui :buttons] update-button-click]
+   [[:ui :buttons] [] handle-button-actions]
+   [[] [:waypoints] handle-new-waypoints]
+   [[:mouse :location] [:waypoints] highlight-waypoints]
    ])
 
 (def post-draw-transforms
   [
    [[:mouse :buttons] [:mouse :previous-buttons] copy]
    ])
-
-(defn merge-maps [result latter]
-  "Merge two maps into one, preserving overall structure."
-  (if (and (map? result) (map? latter))
-    (merge-with merge-maps result latter)
-    latter))
-
-(defn apply-state-transforms [state transforms]
-  "Apply a series of transforms of the form [in-path out-path transform] to a state map and return
-  the updated map."
-  (let [state-updates (map (fn [[in-path out-path xform]]
-                             (assoc-in {} out-path
-                                       (xform (get-in state in-path)
-                                              (get-in state out-path))))
-                           transforms)]
-    (apply merge-with merge-maps state state-updates)))
 
 (defn on-state-change! []
   "Perform pre-draw transformations to application state."

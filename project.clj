@@ -24,6 +24,8 @@
                  [ring/ring-devel "1.1.0"]
                  [ring/ring-json "0.2.0"]
                  [serial-port "1.1.2"]
+                 [speclj "2.9.1"]
+                 [specljs "2.9.1"]
                  ]
   :repositories {"local" ~(str (.toURI (java.io.File. "maven-local")))
                  "sonatype-oss-public" "https://oss.sonatype.org/content/groups/public/"}
