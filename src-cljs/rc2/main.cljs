@@ -12,15 +12,29 @@
                               }
                       :waypoints []
                       :events []
+                      :ui {
+                           ;; Buttons have a name (rendered on the screen), a target vector, and a
+                           ;; transform function. When the button is clicked the transform function
+                           ;; is called with the value in this state tree at the 'target' path,
+                           ;; which is then replaced with the returned value.
+                           :buttons [{:text "Start" :target [:running] :xform (constantly true)
+                                      :hover false :click false}
+                                     {:text "Stop" :target [:running] :xform (constantly false)
+                                      :hover false :click false}
+                                     {:text "Reset" :target [:running] :xform not
+                                      :hover false :click false}]
+                           }
                       :connection {
                                    :last-heartbeat 0
                                    :connected false
                                    }
                       :time 0
+                      :running false
                       }))
 
 (def default-color "#C9EAF9")
 (def dark-color "#627279")
+(def button-size 100)
 (def framerate 30)
 (def heartbeat-interval (* 1000 3))
 
@@ -71,18 +85,14 @@
        :type :world})
     coord))
 
-(defn- color->style [{:keys [r g b a]}]
-  "Convert a map of rgba values to a color style for use in canvas elements."
-  (str "rgba(" r "," g "," b "," a ")"))
-
 ;; Drawing functions. These functions should not modify application state, they should only render
 ;; it to the screen. Updates to state should happen in on-state-change! below.
 
 (defn draw-rect! [[width height] coord color]
   (let [ctx (get-context)
         {:keys [x y]} (world->canvas coord)]
-    (set! (.-fillStyle ctx) (color->style color))
-    (.fillRect ctx x y width height)))
+    (set! (.-strokeStyle ctx) color)
+    (.strokeRect ctx x y width height)))
 
 (defn draw-line [context c1 c2 color]
   (let [{x1 :x y1 :y} (world->canvas c1)
@@ -119,6 +129,27 @@
        (draw-line context (assoc canvas-coord :y 0)
                   (assoc canvas-coord :y (.-height (.-canvas context))) color))))
 
+(defn index-of [elt seq]
+  (first (first (filter #(= elt (second %)) (map-indexed vector seq)))))
+
+(defn button-render-details [buttons button]
+  (let [section-width (* (count buttons) (+ button-size 10))
+        index (index-of button buttons)
+        x (- (+ (* (+ button-size 10) index) 5) (/ section-width 2))
+        y -30]
+    {:coord {:x x :y y :type :world} :width button-size :height 20}))
+
+(defn draw-buttons [buttons]
+  (doseq [button buttons]
+    (let [{:keys [coord width height]} (button-render-details buttons button)
+          context (get-context)]
+      (draw-rect! [width height] coord
+                  (if (:hover button) "#FF0000" default-color)))))
+
+(defn draw-ui-elements [elts]
+  (let [{:keys [buttons]} elts]
+    (draw-buttons buttons)))
+
 (defn draw-coordinates [coord]
   (let [context (get-context)
         world-coords (canvas->world coord)
@@ -126,7 +157,7 @@
     (set! (.-fillStyle context) default-color)
     (set! (.-font context) "12px monospace")
     (.fillText context
-               (str "(" (:x world-coords) "," (:y world-coords) "," (:type world-coords) ")")
+               (str "(" (:x world-coords) "," (:y world-coords) ")")
                (+ x 10) (- y 10))))
 
 ;; TODO Set up heartbeat ping to server and update connection text based on it
@@ -140,6 +171,18 @@
           y 30]
       (.fillText context text x y)
       (.fillText context (str "TIME " time) (- x 60) (+ 30 y)))))
+
+(defn draw-state-info [state]
+  (let [canvas (get-canvas)
+        context (get-context)]
+    (set! (.-fillStyle context) dark-color)
+    (set! (.-font context) "12px monospace")
+    (let [x 30
+          y 90]
+      (doall (map-indexed
+              (fn [i kv]
+                (.fillText context (str kv) x (+ y (* 20 i))))
+              state)))))
 
 (defn draw-section [& {:keys [title coord items]}]
   "Draw a section of text on the screen containing the given items.
@@ -176,8 +219,10 @@ all of the items, items from the end of the list will be preferred." ;; Scrollin
   (clear-canvas!)
   (draw-crosshairs {:x 0 :y 0 :type :world} dark-color)
   (draw-crosshairs (get-in state [:mouse :location]))
+  (draw-ui-elements (get-in state [:ui]))
   (draw-coordinates (get-in state [:mouse :location]))
   (draw-connection-info (get-in state [:connection]) (get-in state [:time]))
+  (draw-state-info state)
   (draw-waypoints (get-in state [:waypoints]))
   (draw-event-log (get-in state [:events])))
 
@@ -197,10 +242,27 @@ all of the items, items from the end of the list will be preferred." ;; Scrollin
     (conj waypoints {:location (:location mouse)})
     waypoints))
 
+(defn in-button? [btns btn pos]
+  (let [{:keys [coord width height]} (button-render-details btns btn)
+        {bx :x by :y} (canvas->world coord)
+        {:keys [x y]} (canvas->world pos)]
+    (and (< bx x (+ bx width))
+         (< (- by height) y by))))
+
+(defn update-button-hover [mouse-pos buttons]
+  (mapv (fn [btn] (assoc btn :hover (in-button? buttons btn mouse-pos))) buttons))
+
+(defn update-button-click [mouse buttons]
+  ;; TODO Update the clicked state of buttons
+  buttons
+  )
+
 (def pre-draw-transforms
   [
    [[:time] [:time] (fn [_ _] (current-time))]
    [[:mouse] [:waypoints] update-waypoints]
+   [[:mouse :location] [:ui :buttons] update-button-hover]
+   [[:mouse] [:buttons] update-button-click]
    ])
 
 (def post-draw-transforms
