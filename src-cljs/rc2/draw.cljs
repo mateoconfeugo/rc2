@@ -5,7 +5,7 @@
 (def dark-color "#627279")
 (def grid-color "#2E3639")
 (def highlight-color "#FAC1B1")
-(def click-color "#00FF00")
+(def error-color "#FF0000")
 
 (def waypoint-radius 5)
 (def button-size 100)
@@ -94,7 +94,7 @@
     (let [{:keys [coord width height]} (button-render-details buttons button)
           context (util/get-context)
           color (if (:hover button)
-                  (if (:click button) click-color highlight-color)
+                  highlight-color
                   default-color)]
       (draw-rect coord width height color)
       (draw-text context (util/coord+ coord (util/->world 10 -12)) (:text button) color))))
@@ -106,7 +106,8 @@
 (defn draw-coordinates [coord]
   (let [context (util/get-context)
         world-coords (util/canvas->world coord)]
-    (draw-text context (util/coord+ coord (util/->world 5 5)) (util/pp-coord world-coords) default-color)))
+    (draw-text context (util/coord+ coord (util/->world 5 5))
+               (util/pp-coord world-coords) default-color)))
 
 (defn draw-connection-info [connection time]
   (let [canvas (util/get-canvas)
@@ -114,8 +115,10 @@
     (let [text (if (:connected connection) "CONNECTED" "OFFLINE")
           x (- (.-width canvas) (:width (text-size context text)) 30)
           y 30]
-      (draw-text context (util/->canvas x y) text default-color :size 14)
-      (draw-text context (util/->canvas (- x 72) (+ 30 y)) (str "TIME " time) default-color :size 14))))
+      (draw-text context (util/->canvas x y) text
+                 (if (:connected connection) default-color error-color) :size 14)
+      (draw-text context (util/->canvas (- x 72) (+ 30 y))
+                 (str "TIME " time) default-color :size 14))))
 
 (defn draw-state-info [state]
   (let [canvas (util/get-canvas)

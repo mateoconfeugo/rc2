@@ -4,6 +4,7 @@
             [rc2.util :as util]))
 
 (def heartbeat-interval (* 1000 3))
+(def heartbeat-timeout (* heartbeat-interval 3))
 
 (def app-state
   (atom {
@@ -158,13 +159,16 @@
 
 (defn check-heartbeat! []
   (let [now (current-time)
-        latest (get-in @app-state [:connection :last-heartbeat])]
-    (when (< heartbeat-interval (- now latest))
+        latest (get-in @app-state [:connection :last-heartbeat])
+        time-since-heartbeat (- now latest)]
+    (when (< heartbeat-interval time-since-heartbeat)
       (api/get-meta (fn [_]
                       (swap! app-state assoc :connection {:last-heartbeat (current-time)
                                                           :connected true}))
                     (fn [_]
-                      (swap! app-state update-in [:connection :connected] (constantly false)))))))
+                      (swap! app-state update-in [:connection :connected] (constantly false)))))
+    (when (< heartbeat-timeout time-since-heartbeat)
+      (swap! app-state update-in [:connection :connected] (constantly false)))))
 
 (defn attach-handlers []
   (set! (.-onmousemove (util/get-canvas)) on-mouse-move!)
