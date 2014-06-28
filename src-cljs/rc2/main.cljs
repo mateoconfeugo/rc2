@@ -4,45 +4,49 @@
             [schema.core :as s])
   (:use-macros [dommy.macros :only [node sel sel1]]))
 
-(def timer-id (atom nil))
-(def app-state (atom {:mouse {
-                              :location {:x 0 :y 0 :type :world}
-                              :buttons {0 :up 1 :up 2 :up}
-                              :previous-buttons {0 :up 1 :up 2 :up}
-                              }
-                      :waypoints []
-                      :events []
-                      :ui {
-                           ;; Buttons have a name (rendered on the screen), a target vector, and a
-                           ;; transform function. When the button is clicked the transform function
-                           ;; is called with the value in this state tree at the 'target' path,
-                           ;; which is then replaced with the returned value.
-                           :buttons [{:text "Start" :target [:running] :xform (constantly true)
-                                      :hover false :click false}
-                                     {:text "Stop" :target [:running] :xform (constantly false)
-                                      :hover false :click false}
-                                     {:text "Reset" :target [:running] :xform not
-                                      :hover false :click false}]
-                           }
-                      :connection {
-                                   :last-heartbeat 0
-                                   :connected false
-                                   }
-                      :time 0
-                      :running false
-                      }))
-
+(def origin {:x 0 :y 0 :type :world})
 (def default-color "#C9EAF9")
 (def dark-color "#627279")
 (def button-size 100)
 (def framerate 30)
 (def heartbeat-interval (* 1000 3))
 
+(def timer-id (atom nil))
+(def app-state
+  (atom {
+         :mouse {
+                 :location origin
+                 :buttons {0 :up 1 :up 2 :up}
+                 :previous-buttons {0 :up 1 :up 2 :up}
+                 }
+         :waypoints []
+         :events []
+         :ui {
+              ;; Buttons have a name (rendered on the screen), a target vector, and a
+              ;; transform function. When the button is clicked the transform function
+              ;; is called with the value in this state tree at the 'target' path,
+              ;; which is then replaced with the returned value.
+              :buttons [{:text "Start" :target [:running] :xform (constantly true)
+                         :hover false :click false}
+                        {:text "Stop" :target [:running] :xform (constantly false)
+                         :hover false :click false}
+                        {:text "Reset" :target [:running] :xform not
+                         :hover false :click false}]
+              }
+         :connection {
+                      :last-heartbeat 0
+                      :connected false
+                      }
+         :time 0
+         :running false
+         }))
+
 (def WorldCoordinate {:x s/Num :y s/Num :type (s/eq :world)})
 (def CanvasCoordinate {:x s/Num :y s/Num :type (s/eq :canvas)})
 (def Coordinate (s/either WorldCoordinate CanvasCoordinate))
 
-;; Conversion utilities
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Canvas/Drawing environment utilities
 (defn get-canvas [] (sel1 :#target))
 
 (defn get-context []
@@ -57,6 +61,17 @@
     (set! (.-width canvas) window-width)
     (set! (.-height canvas) window-height)))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Coordinate manipulation & transformation
+
+(defn ->world [x y]
+  "Create a world coordinate."
+  {:x x :y y :type :world})
+
+(defn ->canvas [x y]
+  "Create a canvas coordinate."
+  {:x x :y y :type :canvas})
+
 (defn screen->canvas [{:keys [x y]}]
   "Convert screen coordinates to canvas coordinates."
   (let [canvas (get-canvas)
@@ -65,28 +80,64 @@
      :y (* (- y (.-top bounding-box)) (/ (.-height canvas) (.-height bounding-box)))
      :type :canvas}))
 
-(defn world->canvas [{:keys [x y] :as coord}]
+(defn world->canvas [{:keys [x y type] :as coord}]
   "Convert world coordinates to canvas coordinates."
   (s/validate Coordinate coord)
-  (if (keyword-identical? :world (:type coord))
+  (if (keyword-identical? :world type)
     (let [canvas (get-canvas)]
-      {:x (+ x (/ (.-width canvas) 2))
-       :y (+ (- y) (/ (.-height canvas) 2))
-       :type :canvas})
+      (->canvas (+ x (/ (.-width canvas) 2))
+                (+ (- y) (/ (.-height canvas) 2))))
     coord))
 
-(defn canvas->world [{:keys [x y] :as coord}]
+(defn canvas->world [{:keys [x y type] :as coord}]
   "Convert canvas coordinates to world coordinates."
   (s/validate Coordinate coord)
-  (if (keyword-identical? :canvas (:type coord))
+  (if (keyword-identical? :canvas type)
     (let [canvas (get-canvas)]
-      {:x (- x (/ (.-width canvas) 2))
-       :y (- (- y (/ (.-height canvas) 2)))
-       :type :world})
+      (->world (- x (/ (.-width canvas) 2))
+               (- (- y (/ (.-height canvas) 2)))))
     coord))
 
-;; Drawing functions. These functions should not modify application state, they should only render
-;; it to the screen. Updates to state should happen in on-state-change! below.
+(defn coerce-coord [c1 c2]
+  "Convert C2 to be the same type of coordinate as C1."
+  (if (= :world (:type c1))
+    (canvas->world c2)
+    (world->canvas c2)))
+
+(defn coord+ [c1 c2]
+  "Add two coordinates."
+  (let [{x1 :x y1 :y} c1
+        {x2 :x y2 :y} (coerce-coord c1 c2)]
+    {:x (+ x1 x2) :y (+ y1 y2) :type (:type c1)}))
+
+(defn coord- [c1 c2]
+  "Subtract two coordinates."
+  (let [{x1 :x y1 :y} c1
+        {x2 :x y2 :y} (coerce-coord c1 c2)]
+    {:x (- x1 x2) :y (- y1 y2) :type (:type c1)}))
+
+(defn world-edge [type]
+  "Get a world coordinate lying at the extreme of an axis.
+
+Accepts the following keywords for their corresponding axes:
+:top (+Y)
+:bottom (-Y)
+:left (-X)
+:right (+X)"
+  (let [canvas (get-canvas)
+        x-range (/ (.-width canvas) 2)
+        y-range (/ (.-height canvas) 2)]
+    (cond
+     (= :right type) (assoc origin :x x-range)
+     (= :left type) (assoc origin :x (- x-range))
+     (= :top type) (assoc origin :y y-range)
+     (= :bottom type) (assoc origin :y (- y-range)))))
+
+;;;;;;;;;;;;
+;; Drawing
+
+;; These functions should not modify application state, they should only render
+;; it to the screen. Updates to state should happen below.
 
 (defn draw-rect! [[width height] coord color]
   (let [ctx (get-context)
@@ -135,9 +186,8 @@
 (defn button-render-details [buttons button]
   (let [section-width (* (count buttons) (+ button-size 10))
         index (index-of button buttons)
-        x (- (+ (* (+ button-size 10) index) 5) (/ section-width 2))
-        y -30]
-    {:coord {:x x :y y :type :world} :width button-size :height 20}))
+        offset (->world (- (+ (* (+ button-size 10) index) 5) (/ section-width 2)) 50)]
+    {:coord (coord+ offset (world-edge :bottom)) :width button-size :height 20}))
 
 (defn draw-buttons [buttons]
   (doseq [button buttons]
@@ -160,7 +210,6 @@
                (str "(" (:x world-coords) "," (:y world-coords) ")")
                (+ x 10) (- y 10))))
 
-;; TODO Set up heartbeat ping to server and update connection text based on it
 (defn draw-connection-info [connection time]
   (let [canvas (get-canvas)
         context (get-context)]
@@ -195,29 +244,28 @@ all of the items, items from the end of the list will be preferred." ;; Scrollin
     (set! (.-fillStyle context) default-color)
     (set! (.-font context) "14px monospace")
     (.fillText context title x y)
-    (draw-line context {:x (- x 2) :y (+ y 3) :type :canvas}
-               {:x (+ x 250 (:width (text-size context title))) :y (+ y 3) :type :canvas}
+    (draw-line context
+               (->canvas (- x 2) (+ y 3))
+               (->canvas (+ x 250 (:width (text-size context title))) (+ y 3))
                default-color)
     (doseq [[item offset] (map list items (iterate (fn [offset] (+ offset 18)) (- y 5)))]
       (.fillText context (str item) x (+ y offset)))))
 
-;; TODO Draw waypoint details
 (defn draw-waypoints [waypoints]
-  (draw-section :title "WAYPOINTS" :coord {:x 30 :y 30 :type :canvas} :items waypoints)
+  (draw-section :title "WAYPOINTS" :coord (->canvas 30 30) :items waypoints)
   (let [context (get-context)]
     (doseq [wp waypoints]
       (let [loc (:location wp)]
         (draw-circle context loc 5)))))
 
-;; TODO Draw event details
 (defn draw-event-log [events]
   (draw-section :title "EVENT LOG"
-                :coord {:x 30 :y (+ 30 (/ (.-height (get-canvas)) 2)) :type :canvas}
+                :coord (->canvas 30 (+ 30 (/ (.-height (get-canvas)) 2)))
                 :items events))
 
 (defn draw [state]
   (clear-canvas!)
-  (draw-crosshairs {:x 0 :y 0 :type :world} dark-color)
+  (draw-crosshairs origin dark-color)
   (draw-crosshairs (get-in state [:mouse :location]))
   (draw-ui-elements (get-in state [:ui]))
   (draw-coordinates (get-in state [:mouse :location]))
@@ -226,11 +274,13 @@ all of the items, items from the end of the list will be preferred." ;; Scrollin
   (draw-waypoints (get-in state [:waypoints]))
   (draw-event-log (get-in state [:events])))
 
-;; Event handlers. Add new handlers for state paths in {pre,pos}-draw-transforms
+;;;;;;;;;;
+;; State
 
-;; State transform functions are registered along with an input path and an output path. The
-;; function is applied to the current (last-frame) state of the input and output paths and the
-;; returned value is stored in the output path.
+;; Add new handlers for state paths in {pre,pos}-draw-transforms. State transform functions are
+;; registered along with an input path and an output path. The function is applied to the current
+;; (last-frame) state of the input and output paths and the returned value is stored in the output
+;; path.
 
 (defn copy [in out] in)
 
@@ -279,10 +329,10 @@ all of the items, items from the end of the list will be preferred." ;; Scrollin
 (defn apply-state-transforms [state transforms]
   "Apply a series of transforms of the form [in-path out-path transform] to a state map and return
   the updated map."
-  (let [state-updates (map (fn [[in-path out-path fun]]
+  (let [state-updates (map (fn [[in-path out-path xform]]
                              (assoc-in {} out-path
-                                       (fun (get-in state in-path)
-                                            (get-in state out-path))))
+                                       (xform (get-in state in-path)
+                                              (get-in state out-path))))
                            transforms)]
     (apply merge-with merge-maps state state-updates)))
 
@@ -301,7 +351,7 @@ all of the items, items from the end of the list will be preferred." ;; Scrollin
 (defn on-mouse-move! [event]
   "Handle mouse movement events."
   (swap! app-state update-in [:mouse :location]
-         (fn [m] (canvas->world (assoc m :x (.-clientX event) :y (.-clientY event) :type :canvas))))
+         (fn [m] (canvas->world (->canvas (.-clientX event) (.-clientY event)))))
   (on-event!))
 
 (defn on-mouse-down! [event]
