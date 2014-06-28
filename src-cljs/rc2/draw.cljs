@@ -73,8 +73,8 @@
 
 (defn draw-grid []
   (let [grid-spacing 50
-        vert-count (/ (:y (util/world-edge :top)) grid-spacing)
-        horiz-count (/ (:x (util/world-edge :right)) grid-spacing)
+        vert-count (.ceil js/Math (/ (:y (util/world-edge :top)) grid-spacing))
+        horiz-count (.ceil js/Math (/ (:x (util/world-edge :right)) grid-spacing))
         count (if (< vert-count horiz-count) horiz-count vert-count)]
     ;; Draw crosshairs along the diagonal
     (doseq [coord (map (fn [i] (util/->world (* 50 i) (* 50 i))) (range (- count) count))]
