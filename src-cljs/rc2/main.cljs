@@ -151,7 +151,7 @@ Accepts the following keywords for their corresponding axes:
 ;; These functions should not modify application state, they should only render
 ;; it to the screen. Updates to state should happen below.
 
-(defn draw-rect! [[width height] coord color]
+(defn draw-rect [coord width height color]
   (let [ctx (get-context)
         {:keys [x y]} (world->canvas coord)]
     (set! (.-strokeStyle ctx) color)
@@ -172,6 +172,12 @@ Accepts the following keywords for their corresponding axes:
     (.beginPath context)
     (.arc context x y r 0 (* 2 (.-PI js/Math)))
     (.stroke context)))
+
+(defn draw-text [context coord text color & {:keys [size] :or {size 12}}]
+  (let [canvas-coord (world->canvas coord)]
+    (set! (.-font context) (str size "px monospace"))
+    (set! (.-fillStyle context) color)
+    (.fillText context text (:x canvas-coord) (:y canvas-coord))))
 
 (defn clear-canvas! []
   (let [ctx (get-context)
@@ -205,11 +211,12 @@ Accepts the following keywords for their corresponding axes:
 (defn draw-buttons [buttons]
   (doseq [button buttons]
     (let [{:keys [coord width height]} (button-render-details buttons button)
-          context (get-context)]
-      (draw-rect! [width height] coord
-                  (if (:hover button)
-                    (if (:click button) click-color highlight-color)
-                    default-color)))))
+          context (get-context)
+          color (if (:hover button)
+                  (if (:click button) click-color highlight-color)
+                  default-color)]
+      (draw-rect coord width height color)
+      (draw-text context (coord+ coord (->world 10 -12)) (:text button) color))))
 
 (defn draw-ui-elements [elts]
   (let [{:keys [buttons]} elts]
@@ -217,35 +224,26 @@ Accepts the following keywords for their corresponding axes:
 
 (defn draw-coordinates [coord]
   (let [context (get-context)
-        world-coords (canvas->world coord)
-        {:keys [x y]} (world->canvas coord)]
-    (set! (.-fillStyle context) default-color)
-    (set! (.-font context) "12px monospace")
-    (.fillText context
-               (pp-coord world-coords)
-               (+ x 10) (- y 10))))
+        world-coords (canvas->world coord)]
+    (draw-text context (coord+ coord (->world 5 5)) (pp-coord world-coords) default-color)))
 
 (defn draw-connection-info [connection time]
   (let [canvas (get-canvas)
         context (get-context)]
-    (set! (.-fillStyle context) default-color)
-    (set! (.-font context) "14px monospace")
     (let [text (if (:connected connection) "CONNECTED" "OFFLINE")
           x (- (.-width canvas) (:width (text-size context text)) 30)
           y 30]
-      (.fillText context text x y)
-      (.fillText context (str "TIME " time) (- x 60) (+ 30 y)))))
+      (draw-text context (->canvas x y) text default-color :size 14)
+      (draw-text context (->canvas (- x 72) (+ 30 y)) (str "TIME " time) default-color :size 14))))
 
 (defn draw-state-info [state]
   (let [canvas (get-canvas)
         context (get-context)]
-    (set! (.-fillStyle context) dark-color)
-    (set! (.-font context) "12px monospace")
     (let [x 30
           y 90]
       (doall (map-indexed
               (fn [i kv]
-                (.fillText context (str kv) x (+ y (* 20 i))))
+                (draw-text context (->canvas x (+ y (* 20 i))) (str kv) dark-color))
               state)))))
 
 (defn draw-section [& {:keys [title coord items xform] :or {xform identity}}]
@@ -256,16 +254,14 @@ all of the items, items from the end of the list will be preferred." ;; Scrollin
   (let [canvas (get-canvas)
         context (get-context)
         {:keys [x y]} (world->canvas coord)]
-    (set! (.-fillStyle context) default-color)
-    (set! (.-font context) "14px monospace")
-    (.fillText context title x y)
+    (draw-text context (->canvas x y) title default-color :size 14)
     (draw-line context
                (->canvas (- x 2) (+ y 3))
                (->canvas (+ x 250 (:width (text-size context title))) (+ y 3))
                default-color)
     (doseq [[item offset] (map list items (iterate (fn [offset] (+ offset 18)) (- y 5)))]
-      (set! (.-fillStyle context) (if (:highlight item) highlight-color default-color))
-      (.fillText context (str (xform item)) x (+ y offset)))))
+      (draw-text context (->canvas x (+ y offset)) (str (xform item))
+                 (if (:highlight item) highlight-color default-color)))))
 
 (defn draw-waypoints [waypoints]
   (draw-section :title "WAYPOINTS" :coord (->canvas 30 30)
