@@ -12,6 +12,8 @@
 ;; Canvas/Drawing environment utilities
 (defn get-canvas [] (sel1 :#target))
 
+(defn get-body [] (sel1 :body))
+
 (defn get-context []
   "Get a drawing context for the canvas."
   (let [canvas (get-canvas)]

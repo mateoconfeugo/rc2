@@ -11,11 +11,10 @@
 
 (def app-state
   (atom {
-         :mouse {
-                 :location util/origin
+         :mouse {:location util/origin
                  :buttons {0 :up 1 :up 2 :up}
-                 :previous-buttons {0 :up 1 :up 2 :up}
-                 }
+                 :previous-buttons {0 :up 1 :up 2 :up}}
+         :keyboard {:pressed #{}}
          :waypoints []
          :events []
          :ui {
@@ -34,15 +33,10 @@
                         {:text "Clear" :target [:waypoints] :hover false :click false
                          :xform (constantly [])}]
               }
-         :tasks {
-                 :pending []
+         :tasks {:pending []
                  :complete []
-                 :last-poll 0
-                 }
-         :connection {
-                      :last-heartbeat 0
-                      :connected false
-                      }
+                 :last-poll 0}
+         :connection {:last-heartbeat 0 :connected false}
          :time 0
          :running false
          }))
@@ -165,6 +159,18 @@
   (swap! app-state update-in [:mouse :buttons (.-button event)] (constantly :up))
   (on-event!))
 
+(defn on-key-down! [event]
+  "Handle key down events."
+  (.log js/console "Key down:" (str event))
+  (swap! app-state update-in [:keyboard :pressed] conj (.-keyCode event))
+  (on-event!))
+
+(defn on-key-up! [event]
+  "Handle key up events."
+  (.log js/console "Key up:" (str event))
+  (swap! app-state update-in [:keyboard :pressed] disj (.-keyCode event))
+  (on-event!))
+
 (defn on-resize! [event]
   "Handle resize events."
   (draw/size-canvas-to-window!)
@@ -224,4 +230,6 @@
   (set! (.-onmousemove (util/get-canvas)) on-mouse-move!)
   (set! (.-onmouseup (util/get-canvas)) on-mouse-up!)
   (set! (.-onmousedown (util/get-canvas)) on-mouse-down!)
+  (set! (.-onkeydown (util/get-body)) on-key-down!)
+  (set! (.-onkeyup (util/get-body)) on-key-up!)
   (set! (.-onresize js/window) on-resize!))
