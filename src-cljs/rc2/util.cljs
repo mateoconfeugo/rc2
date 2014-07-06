@@ -2,11 +2,11 @@
   (:require [schema.core :as s])
   (:use-macros [dommy.macros :only [sel1]]))
 
-(def WorldCoordinate {:x s/Num :y s/Num :type (s/eq :world)})
-(def CanvasCoordinate {:x s/Num :y s/Num :type (s/eq :canvas)})
+(def WorldCoordinate {:x s/Num :y s/Num :z s/Num :type (s/eq :world)})
+(def CanvasCoordinate {:x s/Num :y s/Num :z s/Num :type (s/eq :canvas)})
 (def Coordinate (s/either WorldCoordinate CanvasCoordinate))
 
-(def origin {:x 0 :y 0 :type :world})
+(def origin {:x 0 :y 0 :z 0 :type :world})
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Canvas/Drawing environment utilities
@@ -22,38 +22,41 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Coordinate manipulation & transformation
 
-(defn ->world [x y]
+(defn ->world
   "Create a world coordinate."
-  {:x x :y y :type :world})
+  ([x y z] {:x x :y y :z z :type :world})
+  ([x y] (->world x y 0)))
 
-(defn ->canvas [x y]
+(defn ->canvas
   "Create a canvas coordinate."
-  {:x x :y y :type :canvas})
+  ([x y z]  {:x x :y y :z z :type :canvas})
+  ([x y] (->canvas x y 0)))
 
 (defn screen->canvas [{:keys [x y]}]
   "Convert screen coordinates to canvas coordinates."
   (let [canvas (get-canvas)
         bounding-box (.getBoundingClientRect canvas)]
-    {:x (* (- x (.-left bounding-box)) (/ (.-width canvas) (.-width bounding-box)))
-     :y (* (- y (.-top bounding-box)) (/ (.-height canvas) (.-height bounding-box)))
-     :type :canvas}))
+    (->canvas (* (- x (.-left bounding-box)) (/ (.-width canvas) (.-width bounding-box)))
+              (* (- y (.-top bounding-box)) (/ (.-height canvas) (.-height bounding-box))))))
 
-(defn world->canvas [{:keys [x y type] :as coord}]
+(defn world->canvas [{:keys [x y z type] :as coord}]
   "Convert world coordinates to canvas coordinates."
   (s/validate Coordinate coord)
   (if (keyword-identical? :world type)
     (let [canvas (get-canvas)]
       (->canvas (+ x (/ (.-width canvas) 2))
-                (+ (- y) (/ (.-height canvas) 2))))
+                (+ (- y) (/ (.-height canvas) 2))
+                z))
     coord))
 
-(defn canvas->world [{:keys [x y type] :as coord}]
+(defn canvas->world [{:keys [x y z type] :as coord}]
   "Convert canvas coordinates to world coordinates."
   (s/validate Coordinate coord)
   (if (keyword-identical? :canvas type)
     (let [canvas (get-canvas)]
       (->world (- x (/ (.-width canvas) 2))
-               (- (- y (/ (.-height canvas) 2)))))
+               (- (- y (/ (.-height canvas) 2)))
+               z))
     coord))
 
 (defn pp-coord [{:keys [x y]}]
@@ -67,22 +70,23 @@
 
 (defn coord+ [c1 c2]
   "Add two coordinates."
-  (let [{x1 :x y1 :y} c1
-        {x2 :x y2 :y} (coerce-coord c1 c2)]
-    {:x (+ x1 x2) :y (+ y1 y2) :type (:type c1)}))
+  (let [{x1 :x y1 :y z1 :z} c1
+        {x2 :x y2 :y z2 :z} (coerce-coord c1 c2)]
+    {:x (+ x1 x2) :y (+ y1 y2) :z (+ z1 z2) :type (:type c1)}))
 
 (defn coord- [c1 c2]
   "Subtract two coordinates."
-  (let [{x1 :x y1 :y} c1
-        {x2 :x y2 :y} (coerce-coord c1 c2)]
-    {:x (- x1 x2) :y (- y1 y2) :type (:type c1)}))
+  (let [{x1 :x y1 :y z1 :z} c1
+        {x2 :x y2 :y z2 :z} (coerce-coord c1 c2)]
+    {:x (- x1 x2) :y (- y1 y2) :z (- z1 z2) :type (:type c1)}))
 
 (defn distance [c1 c2]
-  (let [{x1 :x y1 :y} c1
-        {x2 :x y2 :y} (coerce-coord c1 c2)
+  (let [{x1 :x y1 :y z1 :z} c1
+        {x2 :x y2 :y z2 :z} (coerce-coord c1 c2)
         dx (- x1 x2)
-        dy (- y1 y2)]
-    (.sqrt js/Math (+ (* dx dx) (* dy dy)))))
+        dy (- y1 y2)
+        dz (- z1 z2)]
+    (.sqrt js/Math (+ (* dx dx) (* dy dy) (* dz dz)))))
 
 (defn world-edge [type]
   "Get a world coordinate lying at the extreme of an axis.
