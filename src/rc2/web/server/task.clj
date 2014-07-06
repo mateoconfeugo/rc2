@@ -28,17 +28,19 @@
 (declare update-task!)
 
 (defn set-handler! [type handler]
-  "Set the handler for tasks of the given 'type."
+  "Set the handler for tasks of the given 'type.
+
+  Handler functions take a task as an argument, and the returned value is recorded as the result of
+  the task. Exceptions in handlers will cause the task to fail."
   (swap! handlers assoc type handler))
 
 ;; This function is intended to be used only within this module. It is public only for unit testing.
 (defn do-task! [task handlers]
   "Performs a task and returns the state updates which should be applied to it."
   (if-let [handler (get handlers (:type task))]
-    (if (handler task)
-      {:state :complete}
-      ;; TODO Decide on how handlers should indicate error details to the dispatcher
-      {:state :failed})
+    (try
+      {:state :complete :result (handler task)}
+      (catch Exception e {:state :failed :errors [(.getMessage e)]}))
     {:state :failed :errors [(str "No handler for task type " (:type task))]}))
 
 (defn- dispatch-queues! [{:keys [dispatch serial parallel]}]

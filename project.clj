@@ -31,10 +31,9 @@
                  "sonatype-oss-public" "https://oss.sonatype.org/content/groups/public/"}
   :plugins [
             [lein-cljsbuild "1.0.3"]
-            [lein-marginalia "0.7.1"]
+            [speclj "2.9.1"]
             ]
-  :profiles {:dev {:dependencies [[midje "1.5.1"]]
-                   :plugins [[lein-midje "3.1.1"]]}}
+  :profiles {:dev {:plugins [[lein-marginalia "0.7.1"]]}}
   :cljsbuild {
               :builds {:release {:source-paths ["src-cljs"]
                                  :compiler {:output-to "resources/public/js/rc2.js"

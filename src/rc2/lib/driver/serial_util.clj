@@ -17,3 +17,6 @@
 (defn write-array [interface array]
   "Write the contents of a byte array to the given interface."
   (serial/write (:serial interface) array))
+
+(defn close-interface [iface]
+  (serial/close iface))

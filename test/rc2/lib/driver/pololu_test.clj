@@ -1,8 +1,8 @@
 (ns rc2.lib.driver.pololu-test
-  (:use midje.sweet
-        rc2.lib.driver.pololu)
-  (:require [rc2.lib.robot :as robot]
+  (:require [speclj.core :refer :all]
+            [rc2.lib.robot :as robot]
             [rc2.lib.descriptor.delta :as delta]
+            [rc2.lib.driver.pololu :refer :all]
             [serial-port :as serial]))
 
 (def port 'port)
@@ -12,45 +12,50 @@
 (defn byte-arrays-equal [a1 a2]
   (= (seq a1) (seq a2)))
 
-(facts "About initialize!"
-  (fact "initialize! should return true if the right byte is written"
-    (let [init-byte (byte-array 1 (byte -42))]
-      (robot/initialize! interface) => true
-      (provided (serial/write port (as-checker (partial byte-arrays-equal init-byte))) => true))))
+(describe
+ "initialize!"
+ (it "should return true if the right byte is written"
+     (let [init-byte (byte-array 1 (byte -42))]
+       (with-redefs [serial/write (fn [port array] (byte-arrays-equal init-byte array))]
+        (should (robot/initialize! interface))))))
 
-(facts "About take-pose!"
-  (future-fact "take-pose! should use the calibration value for each servo"
-    (let [interface (assoc interface :calibrations
-                           {:a (assoc calibration :low_angle 0 :high_angle 20)
-                            :b (assoc calibration :low_angle 0 :high_angle 10)
-                            :c (assoc calibration :low_angle 0 :high_angle 2)})]
-      (robot/take-pose! interface pose) => true
-      (provided (move-servo! interface anything 50) => true))))
+(describe
+ "take-pose!"
+ (pending "should use the calibration value for each servo"
+          (let [interface (assoc interface :calibrations
+                                 {:a (assoc calibration :low_angle 0 :high_angle 20)
+                                  :b (assoc calibration :low_angle 0 :high_angle 10)
+                                  :c (assoc calibration :low_angle 0 :high_angle 2)})]
+            (with-redefs [move-servo! (fn [iface servo cycle] (and (= interface iface)
+                                                                   (= 50 cycle)))]
+             (should (robot/take-pose! interface pose))))))
 
-(facts "About ->duty-cycle"
-  (fact "->duty-cycle should return nil if the angle is higher than the :high_angle"
-    (->duty-cycle calibration 60) => nil)
-  (fact "->duty-cycle should return nil if the angle is lower than the :low_angle"
-    (->duty-cycle calibration -60) => nil)
-  (fact "->duty-cycle should return the midpoint duty cycle for 0 radians"
-    (->duty-cycle calibration 0) => 50)
-  (fact "->duty-cycle should return the low end duty cycle for :low_angle radians"
-    (->duty-cycle calibration -50) => 0)
-  (fact "->duty-cycle should return the high end duty cycle for :high_angle radians"
-    (->duty-cycle calibration 50) => 100)
-  (fact "->duty-cycle should return the high duty cycle for :low_angle radians when inverted"
-    (->duty-cycle (assoc calibration :inverted true) -50) => 100)
-  (fact "->duty-cycle should return the low duty cycle for :high_angle radians when inverted"
-    (->duty-cycle (assoc calibration :inverted true) 50) => 0)
-  (fact "->duty-cycle should return a value below mid for args above mid when inverted"
-    (->duty-cycle (assoc calibration :inverted true) 25) => 25)
-  (fact "->duty-cycle should return a value above mid for args below mid when inverted"
-    (->duty-cycle (assoc calibration :inverted true) -25) => 75)
-  (fact "->duty-cycle should return an int"
-    (->duty-cycle calibration 25.5) => 75))
+(describe
+ "->duty-cycle"
+ (it "should return nil if the angle is higher than the :high_angle"
+     (should= nil (->duty-cycle calibration 60)))
+ (it "should return nil if the angle is lower than the :low_angle"
+     (should= nil (->duty-cycle calibration -60)))
+ (it "should return the midpoint duty cycle for 0 radians"
+     (should= 50 (->duty-cycle calibration 0)))
+ (it "should return the low end duty cycle for :low_angle radians"
+     (should= 0 (->duty-cycle calibration -50)))
+ (it "should return the high end duty cycle for :high_angle radians"
+     (should= 100 (->duty-cycle calibration 50)))
+ (it "should return the high duty cycle for :low_angle radians when inverted"
+     (should= 100 (->duty-cycle (assoc calibration :inverted true) -50)))
+ (it "should return the low duty cycle for :high_angle radians when inverted"
+     (should= 0 (->duty-cycle (assoc calibration :inverted true) 50)))
+ (it "should return a value below mid for args above mid when inverted"
+     (should= 25 (->duty-cycle (assoc calibration :inverted true) 25)))
+ (it "should return a value above mid for args below mid when inverted"
+     (should= 75 (->duty-cycle (assoc calibration :inverted true) -25)))
+ (it "should return an int"
+     (should= 75 (->duty-cycle calibration 25.5))))
 
-(facts "About servo->index"
-  (fact "servo->index should return nil if the servo keyword is wrong"
-    (servo->index :blah) => nil)
-  (fact "servo->inces should return 1 for :b"
-    (servo->index :b) => 1))
+(describe
+ "servo->index"
+ (it "should return nil if the servo keyword is wrong"
+     (should= nil (servo->index :blah)))
+ (it "should return 1 for :b"
+     (should= 1 (servo->index :b))))

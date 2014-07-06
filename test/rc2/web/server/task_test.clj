@@ -1,19 +1,26 @@
 (ns rc2.web.server.task-test
-  (:use midje.sweet
-        rc2.web.server.task))
+  (:require [speclj.core :refer :all]
+            [rc2.web.server.task :refer :all]))
 
-(facts "About make-task"
-  (fact "make-task adds type and affinity fields to the task and carries options forward"
-    (make-task :move {:destination {:x 1 :y 2 :z 3}})
-    => (contains {:type :move :destination {:x 1 :y 2 :z 3} :affinity :serial}))
-  (fact "make-task adds a creation timestamp"
-    (nil? (:created (make-task :move {:destination {:x 1 :y 2 :z 3}}))) => false))
+(describe
+ "make-task"
+ (it "adds affinity to the task"
+     (should= :serial (:affinity (make-task :move {:destination {:x 1 :y 2 :z 3}}))))
+ (it "adds type to the task"
+     (should= :move (:type (make-task :move {:destination {:x 1 :y 2 :z 3}}))))
+ (it "adds a creation timestamp to the task"
+     (should-not (nil? (:created (make-task :move {:destination {:x 1 :y 2 :z 3}}))))))
 
-(facts "About do-task!"
+(describe "do-task!"
   (let [task {:type :test}]
-    (fact "do-task! returns an error if no handler is available"
-      (do-task! task {}) => (contains {:state :failed :errors vector?}))
-    (fact "do-task! returns an error if no handler is available"
-      (do-task! task {:test identity}) => (contains {:state :complete}))
-    (fact "do-task! returns an error if no handler is available"
-      (do-task! task {:test (constantly false)}) => (contains {:state :failed}))))
+    (it "returns an error if no handler is available"
+        (should-contain {:state :failed :errors vector?} (do-task! task {})))
+    (it "sets the task state to complete if no exceptions occur"
+        (should-contain {:state :complete :result true} (do-task! task {:test (constantly true)})))
+    (it "sets the task state to failed if an exception is thrown"
+        (should= :failed (:state (do-task! task {:test (fn [_] (throw (Exception. "Testing")))}))))
+    (it "includes an error message if an exception is thrown"
+        (should= ["Testing"]
+                 (:errors (do-task! task {:test (fn [_] (throw (Exception. "Testing")))}))))))
+
+(run-specs)

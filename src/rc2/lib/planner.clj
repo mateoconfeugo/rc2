@@ -4,10 +4,11 @@
             [rc2.lib.position :as pos]
             [schema.core :as s]))
 
-(def Point [s/Number])
+(def Point [s/Num])
 (def SourceMap {(s/named s/Keyword "part name") Point})
-(def PartDef [(s/named s/Keyword "part name") Point])
+(def PartDef [(s/one s/Keyword "part name") Point])
 (def PartList [PartDef])
+
 
 (s/defn ->source :- [Point] [sources :- SourceMap part :- PartDef]
   "Returns a vector from the source providing the part to the final location of the part using

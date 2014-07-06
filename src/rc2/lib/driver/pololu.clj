@@ -1,9 +1,8 @@
 (ns rc2.lib.driver.pololu
-  (:use [rc2.lib.driver.serial-util :only [write-array write-vals encode-array]]
+  (:use [rc2.lib.driver.serial-util :only [write-array write-vals encode-array close-interface]]
         clojure.tools.trace)
   (:require [rc2.lib.robot :as robot]
-            [gloss.core :as gloss]
-            [serial-port :as serial]))
+            [gloss.core :as gloss]))
 
 (defrecord PololuInterface [serial calibrations])
 
@@ -118,7 +117,7 @@
 (extend-protocol robot/RobotDriver
   PololuInterface
   (initialize! [interface] (write-vals interface [-42]))
-  (shut-down! [interface] (serial/close (:serial interface)))
+  (shut-down! [interface] (close-interface (:serial interface)))
   (take-pose! [interface pose]
     (let [angles (robot/joint-angles pose)
           servos (keys angles)]
