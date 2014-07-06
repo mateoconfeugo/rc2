@@ -158,7 +158,7 @@ all of the items, items from the end of the list will be preferred." ;; Scrollin
                (util/->canvas (- x 2) (+ y 3))
                (util/->canvas (+ x 250 (:width (text-size title))) (+ y 3))
                default-color)
-    (doseq [[item offset] (map list items (iterate (fn [offset] (+ offset 18)) (- y 5)))]
+    (doseq [[item offset] (map list items (iterate (fn [offset] (+ offset 18)) 22))]
       (draw-text context (util/->canvas x (+ y offset)) (str (xform item))
                  (if (:highlight item) highlight-color default-color)))))
 
