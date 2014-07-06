@@ -1,7 +1,7 @@
 (ns rc2.state-test
   (:require [specljs.core :as specljs]
             [rc2.state :as state])
-  (:require-macros [specljs.core :refer [describe it should should= should-not]]))
+  (:require-macros [specljs.core :refer [describe it should should= should-not with]]))
 
 (describe
  "apply-state-transforms"
@@ -27,3 +27,13 @@
            transforms []
            results (state/apply-state-transforms state transforms)]
        (should= state results))))
+
+(describe
+ "update-task-state"
+ (it "does nothing if the task is not complete"
+     (let [app-state {:tasks {:pending [1] :complete []}}]
+       (should= app-state (state/update-task-state app-state {"state" "processing", "id" 1}))))
+ (it "moves the task ID to the complete list if the task is complete"
+     (let [app-state {:tasks {:pending [1] :complete []}}]
+       (should= {:tasks {:pending [] :complete [1]}}
+                (state/update-task-state app-state {"state" "complete", "id" 1})))))

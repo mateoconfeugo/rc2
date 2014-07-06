@@ -5,12 +5,20 @@
   (POST "/api/v1/tasks"
        {:params task
         :handler success
-        :error-handler error}))
+        :error-handler error
+        :format :json}))
 
 (defn get-tasks [success error]
   (GET "/api/v1/tasks" {:handler success
-                        :error-handler error}))
+                        :error-handler error
+                        :format :json}))
+
+(defn get-task [id success error]
+  (GET (str "/api/v1/tasks/" id) {:handler success
+                                  :error-handler error
+                                  :format :json}))
 
 (defn get-meta [success error]
   (GET "/meta" {:handler success
-                :error-handler error}))
+                :error-handler error
+                :format :json}))

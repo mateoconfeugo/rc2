@@ -5,6 +5,9 @@
 
 (def heartbeat-interval (* 1000 3))
 (def heartbeat-timeout (* heartbeat-interval 3))
+(def task-update-interval 500) ;; Check for task state changes every 500ms.
+
+(declare start-task!)
 
 (def app-state
   (atom {
@@ -20,13 +23,22 @@
               ;; transform function. When the button is clicked the transform function
               ;; is called with the value in this state tree at the 'target' path,
               ;; which is then replaced with the returned value.
-              :buttons [{:text "Start" :target [:running] :hover false :click false
+              :buttons [{:text "Plan" :target [:waypoints] :hover false :click false
+                         :xform (fn [waypoints]
+                                  (start-task! {:type :plan :waypoints waypoints})
+                                  waypoints)}
+                        {:text "Start" :target [:running] :hover false :click false
                          :xform (constantly true)}
                         {:text "Stop" :target [:running] :hover false :click false
                          :xform (constantly false)}
                         {:text "Clear" :target [:waypoints] :hover false :click false
                          :xform (constantly [])}]
               }
+         :tasks {
+                 :pending []
+                 :complete []
+                 :last-poll 0
+                 }
          :connection {
                       :last-heartbeat 0
                       :connected false
@@ -154,8 +166,22 @@
   (on-event!))
 
 (defn on-resize! [event]
+  "Handle resize events."
   (draw/size-canvas-to-window!)
   (on-event!))
+
+(defn on-task-completion! [task]
+  "Handle task completion events."
+  ;; TODO Implement task completion handlers
+  (.log js/console "Task complete: " (str task))
+  )
+
+(defn start-task! [task]
+  (api/add-task! task
+                 (fn [resp]
+                   (.log js/console "Started task " (str resp) "id:" (get resp "id"))
+                   (swap! app-state update-in [:tasks :pending] #(conj % (get resp "id"))))
+                 (fn [resp] (.log js/console "Failed to add task " (str task)))))
 
 (defn check-heartbeat! []
   (let [now (current-time)
@@ -169,6 +195,30 @@
                       (swap! app-state update-in [:connection :connected] (constantly false)))))
     (when (< heartbeat-timeout time-since-heartbeat)
       (swap! app-state update-in [:connection :connected] (constantly false)))))
+
+(defn update-task-state [app-state task]
+  (let [state (get task "state")
+        id (get task "id")]
+    (if (= "complete" state)
+      (do (on-task-completion! task)
+          (-> app-state
+              (update-in [:tasks :pending] (fn [ids] (filterv (fn [x] (not (= id x))) ids)))
+              (update-in [:tasks :complete] (fn [ids] (conj ids id)))))
+      app-state)))
+
+(defn check-tasks! []
+  (let [now (current-time)
+        latest (get-in @app-state [:tasks :last-poll])
+        time-since-poll (- now latest)]
+    (when (< task-update-interval time-since-poll)
+      (doseq [id (get-in @app-state [:tasks :pending])]
+        (api/get-task
+         id
+         (fn [resp]
+           (swap! app-state update-task-state resp))
+         (fn [err]
+           (swap! app-state update-in [:connection :connected] (constantly false)))))
+      (swap! app-state update-in [:tasks :last-poll] (constantly now)))))
 
 (defn attach-handlers []
   (set! (.-onmousemove (util/get-canvas)) on-mouse-move!)

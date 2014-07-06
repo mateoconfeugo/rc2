@@ -9,6 +9,7 @@
 (defn on-timer-tick! []
   "Handle timer ticks by triggering redraw of the application."
   (state/check-heartbeat!)
+  (state/check-tasks!)
   (draw/draw (state/on-state-change!))
   (state/post-draw))
 
