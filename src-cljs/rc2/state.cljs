@@ -7,7 +7,7 @@
 (def heartbeat-timeout (* heartbeat-interval 3))
 (def task-update-interval 500) ;; Check for task state changes every 500ms.
 
-(declare start-task!)
+(declare plan-route!)
 
 (def app-state
   (atom {
@@ -16,6 +16,7 @@
                  :previous-buttons {0 :up 1 :up 2 :up}}
          :keyboard {:pressed #{}}
          :waypoints []
+         :plan []
          :events []
          :ui {
               ;; Buttons have a name (rendered on the screen), a target vector, and a
@@ -24,7 +25,7 @@
               ;; which is then replaced with the returned value.
               :buttons [{:text "Plan" :target [:waypoints] :hover false :click false
                          :xform (fn [waypoints]
-                                  (start-task! {:type :plan :waypoints waypoints})
+                                  (plan-route! waypoints)
                                   waypoints)}
                         {:text "Start" :target [:running] :hover false :click false
                          :xform (constantly true)}
@@ -89,7 +90,8 @@
       (if (= :insert (get-in state [:mode :primary]))
         (conj waypoints {:location (:location mouse)
                          :highlight true
-                         :kind (get-in state [:mode :secondary])})
+                         :kind (get-in state [:mode :secondary])
+                         :part-id 1}) ;; TODO Fix part IDs
         (filter #(not (:highlight %)) waypoints))
       waypoints)))
 
@@ -201,18 +203,31 @@
   (draw/size-canvas-to-window!)
   (on-event!))
 
-(defn on-task-completion! [task]
+(defn on-task-completion [app-state task]
   "Handle task completion events."
-  ;; TODO Implement task completion handlers
-  (.log js/console "Task complete: " (str task))
-  )
+  (let [type (get task "type")
+        result (get task "result")]
+    (.log js/console type " complete: " (str result))
+    (cond
+     (= "plan" type) (assoc app-state :plan result)
+     :else app-state)))
 
 (defn start-task! [task]
+  "Send a task to the server and add its ID to the pending task list."
   (api/add-task! task
                  (fn [resp]
                    (.log js/console "Started task " (str resp) "id:" (get resp "id"))
                    (swap! app-state update-in [:tasks :pending] #(conj % (get resp "id"))))
                  (fn [resp] (.log js/console "Failed to add task " (str task)))))
+
+(defn clean-waypoint [waypoint]
+  (let [{:keys [location kind part-id]} waypoint
+        {:keys [x y]} location]
+   {:x x :y y :z 0 :kind kind :part-id part-id}))
+
+(defn plan-route! [waypoints]
+  "Send a request to the server to plan a route using the current waypoints."
+  (start-task! {:type :plan :waypoints (mapv clean-waypoint waypoints)}))
 
 (defn check-heartbeat! []
   (let [now (current-time)
@@ -231,10 +246,10 @@
   (let [state (get task "state")
         id (get task "id")]
     (if (= "complete" state)
-      (do (on-task-completion! task)
-          (-> app-state
-              (update-in [:tasks :pending] (fn [ids] (filterv (fn [x] (not (= id x))) ids)))
-              (update-in [:tasks :complete] (fn [ids] (conj ids id)))))
+      (-> app-state
+          (on-task-completion task)
+          (update-in [:tasks :pending] (fn [ids] (filterv (fn [x] (not (= id x))) ids)))
+          (update-in [:tasks :complete] (fn [ids] (conj ids id))))
       app-state)))
 
 (defn check-tasks! []
