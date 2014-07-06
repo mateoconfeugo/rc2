@@ -19,4 +19,5 @@
   (serial/write (:serial interface) array))
 
 (defn close-interface [iface]
+  "Close the serial interface."
   (serial/close iface))

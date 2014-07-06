@@ -8,7 +8,7 @@
                      :tasks {}
                      :last-task-id 0
                      :device-status {}}))
-(defonce handlers (atom {}))
+(defonce task-types (atom {}))
 
 (def initialized (atom false))
 (defonce queues {:dispatch (chan 50)
@@ -21,27 +21,32 @@
            (s/required-key :update) s/Num
            (s/required-key :state) s/Keyword
            :affinity s/Keyword
-           :destination {(s/required-key :x) s/Num
-                         (s/required-key :y) s/Num
-                         (s/required-key :z) s/Num}})
+           :waypoints [{(s/required-key :x) s/Num
+                        (s/required-key :y) s/Num
+                        (s/required-key :z) s/Num}]})
 
 (declare update-task!)
 
-(defn set-handler! [type handler]
-  "Set the handler for tasks of the given 'type.
+(defn register-task-type! [type handler &{:keys [affinity] :or {affinity :serial}}]
+  "Register a handler for tasks of the given 'type.
 
   Handler functions take a task as an argument, and the returned value is recorded as the result of
-  the task. Exceptions in handlers will cause the task to fail."
-  (swap! handlers assoc type handler))
+  the task. Exceptions in handlers will cause the task to fail. If not specified, the task affinity
+  is defaulted to serial."
+  (swap! task-types assoc type {:handler handler
+                                :affinity affinity})
+  (println "Registered task type" type)
+  (println (str @task-types)))
 
 ;; This function is intended to be used only within this module. It is public only for unit testing.
 (defn do-task! [task handlers]
   "Performs a task and returns the state updates which should be applied to it."
   (if-let [handler (get handlers (:type task))]
     (try
-      {:state :complete :result (handler task)}
-      (catch Exception e {:state :failed :errors [(.getMessage e)]}))
-    {:state :failed :errors [(str "No handler for task type " (:type task))]}))
+      [:state :complete :result (handler task)]
+      (catch Exception e
+        [:state :failed :errors [(.getMessage e)]]))
+    [:state :failed :errors [(str "No handler for task type " (:type task))]]))
 
 (defn- dispatch-queues! [{:keys [dispatch serial parallel]}]
   "Allocate tasks from the 'dispatch queue into the 'serial and 'parallel queues."
@@ -53,12 +58,16 @@
               task)
           (recur (<! dispatch))))))
 
+(defn get-handlers [types]
+  "Extract handler functions into a map keyed by type from the full task data map."
+  (into {} (map (fn [[type data]] [type (:handler data)]) types)))
+
 (defn- process-queue! [queue]
   "Process tasks from the queue until it is closed."
   (go (loop [task (<! queue)]
         (when task
           (update-task! (:id task) :state :processing)
-          (update-task! (:id task) (do-task! task @handlers))
+          (apply (partial update-task! (:id task)) (do-task! task (get-handlers @task-types)))
           (recur (<! queue))))))
 
 (defn init-workers! [num-parallel]
@@ -113,13 +122,12 @@
 
 (defn make-task [type options]
   "Create a new task."
-  (let [template {:created (current-time) :type type}
-        task (merge options template)]
-    ;; TODO This should probably dispatch out to type-specific functions so we can validate
-    (case type
-      :move (assoc task :affinity :serial)
-      :connect (assoc task :affinity :serial)
-      :calibrate (assoc task :affinity :serial))))
+  (if-let [type-data (get @task-types type)]
+    (let [template {:created (current-time) :type type}
+          task (merge options template)]
+      ;; TODO This should probably also perform type-specific validation
+      (assoc task :affinity (:affinity type-data)))
+    (throw (Exception. "Unrecognized task type " type))))
 
 (defn add-task! [type options]
   "Add a task to the task listing."
