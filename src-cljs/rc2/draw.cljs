@@ -172,7 +172,9 @@ all of the items, items from the end of the list will be preferred." ;; Scrollin
       (let [loc (:location wp)
             color (if (= :source (:kind wp)) source-color sink-color)
             color (if (:highlight wp) highlight-color color)]
-        (draw-circle context loc waypoint-radius color)))))
+        (draw-circle context loc waypoint-radius color)
+        (draw-text context (util/coord+ (util/->world 5 3) loc)
+                   (:part-id wp) default-color :size 10)))))
 
 (defn pairs [coll]
   (map vector coll (drop 1 coll)))
