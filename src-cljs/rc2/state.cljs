@@ -3,11 +3,21 @@
             [rc2.draw :as draw]
             [rc2.util :as util]))
 
+(declare plan-route!)
+
 (def heartbeat-interval (* 1000 3))
 (def heartbeat-timeout (* heartbeat-interval 3))
 (def task-update-interval 500) ;; Check for task state changes every 500ms.
 
-(declare plan-route!)
+;; Keybindings for moving between primary modes.
+(def mode-keys {:delete {\I :insert}
+                :insert {\D :delete}})
+
+;; Keybindings for changing secondary mode.
+(def sub-mode-keys {:delete {:default nil}
+                    :insert {\P :source
+                             \S :sink
+                             :default :sink}})
 
 (def app-state
   (atom {
@@ -130,31 +140,30 @@
 (defn handle-part-keys [keys parts]
   "Set the primary mode based on the current keys."
   (if-let [part-num (first (->> keys
-                                (map (fn [k] (Number/parseInt k)))
+                                (map (fn [k] (.parseInt js/Number k)))
                                 (filter (fn [k] (not (js/isNaN k))))))]
     (if (< part-num (count (:available parts)))
       (assoc parts :selected part-num)
       parts)
     parts))
 
-(defn handle-mode-keys [keys primary]
+(defn handle-mode-keys [pressed-keys primary]
   "Set the primary mode based on the current keys."
-  (condp #(contains? %2 %1) keys
-    \D :delete
-    \I :insert
-    primary))
+  (let [mode-map (get mode-keys primary)
+        key (first (filter (fn [k] (contains? (set (keys mode-map)) k)) pressed-keys))]
+    (if-let [next-mode (get mode-map key)]
+      next-mode
+      primary)))
 
-(defn handle-secondary-mode-keys [keys mode]
+(defn handle-secondary-mode-keys [pressed-keys mode]
   "Set the secondary mode based on the current keys."
   (let [primary-mode (:primary mode)
         current-secondary (:secondary mode)
-        secondary-mode (if (= :insert primary-mode)
-                         (condp #(contains? %2 %1) keys
-                           \P :source
-                           \S :sink
-                           (or current-secondary :sink))
-                         nil)]
-    (assoc mode :secondary secondary-mode)))
+        mode-map (get sub-mode-keys primary-mode)
+        key (first (filter (fn [k] (contains? (set (keys mode-map)) k)) pressed-keys))]
+    (assoc mode :secondary (if-let [next-mode (get mode-map key)]
+                             next-mode
+                             (or current-secondary (get mode-map :default))))))
 
 (def pre-draw-transforms
   [
