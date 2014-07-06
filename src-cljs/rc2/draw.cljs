@@ -6,6 +6,8 @@
 (def grid-color "#2E3639")
 (def highlight-color "#FAC1B1")
 (def error-color "#FF0000")
+(def source-color "#ACAB69")
+(def sink-color "#8869AC")
 
 (def waypoint-radius 5)
 (def button-size 100)
@@ -111,10 +113,12 @@
     (draw-text context (util/coord+ coord (util/->world 5 5))
                (util/pp-coord world-coords) default-color)))
 
-(defn draw-mode-info [mode]
+(defn draw-mode-info [{:keys [primary secondary]}]
   (let [canvas (util/get-canvas)
         context (util/get-context)
-        text (if (= :insert mode) "INSERT MODE" "DELETE MODE")
+        text (if (= :insert primary)
+               (str (if (= :source secondary) "SOURCE" "SINK") " INSERT MODE")
+               "DELETE MODE")
         x-off (- (/ (:width (text-size text :size 14)) 2))
         y-off 60
         coord (util/coord+ (util/world-edge :bottom) (util/->world x-off y-off))]
@@ -161,12 +165,14 @@ all of the items, items from the end of the list will be preferred." ;; Scrollin
 (defn draw-waypoints [waypoints]
   (draw-section :title "WAYPOINTS" :coord (util/->canvas 30 30)
                 :items waypoints
-                :xform (fn [wp] (util/pp-coord (:location wp))))
+                :xform (fn [wp] (str (if (= :source (:kind wp)) "SOURCE " "SINK   ")
+                                     (util/pp-coord (:location wp)))))
   (let [context (util/get-context)]
     (doseq [wp waypoints]
-      (let [loc (:location wp)]
-        (draw-circle context loc waypoint-radius
-                     (if (:highlight wp) highlight-color default-color))))))
+      (let [loc (:location wp)
+            color (if (= :source (:kind wp)) source-color sink-color)
+            color (if (:highlight wp) highlight-color color)]
+        (draw-circle context loc waypoint-radius color)))))
 
 (defn draw-event-log [events]
   (draw-section :title "EVENT LOG"

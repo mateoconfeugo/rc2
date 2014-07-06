@@ -33,7 +33,8 @@
                         {:text "Clear" :target [:waypoints] :hover false :click false
                          :xform (constantly [])}]
               }
-         :mode :insert
+         :mode {:primary  :insert
+                :secondary :sink}
          :tasks {:pending []
                  :complete []
                  :last-poll 0}
@@ -85,8 +86,10 @@
         buttons (get-in state [:ui :buttons])]
     (if (and (not (some #(:hover %) buttons))
              (clicked? mouse 0))
-      (if (= :insert (get state :mode))
-        (conj waypoints {:location (:location mouse) :highlight true})
+      (if (= :insert (get-in state [:mode :primary]))
+        (conj waypoints {:location (:location mouse)
+                         :highlight true
+                         :kind (get-in state [:mode :secondary])})
         (filter #(not (:highlight %)) waypoints))
       waypoints)))
 
@@ -119,16 +122,30 @@
                           (filterv #(:click %) buttons)))]
     (apply-state-transforms state transforms)))
 
-(defn handle-mode-keys [keys mode]
+(defn handle-mode-keys [keys primary]
+  "Set the primary mode based on the current keys."
   (condp #(contains? %2 %1) keys
     \D :delete
     \I :insert
-    mode))
+    primary))
+
+(defn handle-secondary-mode-keys [keys mode]
+  "Set the secondary mode based on the current keys."
+  (let [primary-mode (:primary mode)
+        current-secondary (:secondary mode)
+        secondary-mode (if (= :insert primary-mode)
+                         (condp #(contains? %2 %1) keys
+                           \P :source
+                           \S :sink
+                           (or current-secondary :sink))
+                         nil)]
+    (assoc mode :secondary secondary-mode)))
 
 (def pre-draw-transforms
   [
    [[:time] [:time] (fn [_ _] (current-time))]
-   [[:keyboard :pressed] [:mode] handle-mode-keys]
+   [[:keyboard :pressed] [:mode :primary] handle-mode-keys]
+   [[:keyboard :pressed] [:mode] handle-secondary-mode-keys]
    [[:mouse :location] [:ui :buttons] update-button-hover]
    [[:mouse] [:ui :buttons] update-button-click]
    [[:ui :buttons] [] handle-button-actions]
@@ -171,13 +188,11 @@
 
 (defn on-key-down! [event]
   "Handle key down events."
-  (.log js/console "Key down:" (str event))
   (swap! app-state update-in [:keyboard :pressed] conj (.fromCharCode js/String (.-keyCode event)))
   (on-event!))
 
 (defn on-key-up! [event]
   "Handle key up events."
-  (.log js/console "Key up:" (str event))
   (swap! app-state update-in [:keyboard :pressed] disj (.fromCharCode js/String (.-keyCode event)))
   (on-event!))
 
