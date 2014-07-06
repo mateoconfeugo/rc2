@@ -174,6 +174,16 @@ all of the items, items from the end of the list will be preferred." ;; Scrollin
             color (if (:highlight wp) highlight-color color)]
         (draw-circle context loc waypoint-radius color)))))
 
+(defn pairs [coll]
+  (map vector coll (drop 1 coll)))
+
+(defn draw-plan-segments [plan]
+  (let [context (util/get-context)]
+    (doseq [segment (pairs plan)]
+      (let [start (apply util/->world (first segment))
+            end (apply util/->world (second segment))]
+        (draw-line context start end default-color)))))
+
 (defn draw-event-log [events]
   (draw-section :title "EVENT LOG"
                 :coord (util/->canvas 30 (+ 30 (/ (.-height (util/get-canvas)) 2)))
@@ -189,5 +199,6 @@ all of the items, items from the end of the list will be preferred." ;; Scrollin
   (draw-connection-info (get state :connection) (get state :time))
   (draw-mode-info (get state :mode))
   (draw-state-info state)
+  (draw-plan-segments (get state :plan))
   (draw-waypoints (get state :waypoints))
   (draw-event-log (get state :events)))
