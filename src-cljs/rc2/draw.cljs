@@ -184,6 +184,12 @@ all of the items, items from the end of the list will be preferred." ;; Scrollin
             end (apply util/->world (second segment))]
         (draw-line context start end default-color)))))
 
+(defn draw-part-list [parts]
+  (draw-section :title "PARTS"
+                :coord (util/->canvas 30 (+ 30 (/ (.-height (util/get-canvas)) 2)))
+                :items parts
+                :xform (fn [part] (str (:id part) ": " (:name part)))))
+
 (defn draw-event-log [events]
   (draw-section :title "EVENT LOG"
                 :coord (util/->canvas 30 (+ 30 (/ (.-height (util/get-canvas)) 2)))
@@ -201,4 +207,6 @@ all of the items, items from the end of the list will be preferred." ;; Scrollin
   (draw-state-info state)
   (draw-plan-segments (get state :plan))
   (draw-waypoints (get state :waypoints))
-  (draw-event-log (get state :events)))
+  (draw-part-list (get state :parts))
+  ;;(draw-event-log (get state :events))
+  )

@@ -17,6 +17,7 @@
          :keyboard {:pressed #{}}
          :waypoints []
          :plan []
+         :parts [{:name "Test Part" :id 1}]
          :events []
          :ui {
               ;; Buttons have a name (rendered on the screen), a target vector, and a
