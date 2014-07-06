@@ -33,6 +33,7 @@
                         {:text "Clear" :target [:waypoints] :hover false :click false
                          :xform (constantly [])}]
               }
+         :mode :insert
          :tasks {:pending []
                  :complete []
                  :last-poll 0}
@@ -84,7 +85,9 @@
         buttons (get-in state [:ui :buttons])]
     (if (and (not (some #(:hover %) buttons))
              (clicked? mouse 0))
-      (conj waypoints {:location (:location mouse) :highlight true})
+      (if (= :insert (get state :mode))
+        (conj waypoints {:location (:location mouse) :highlight true})
+        (filter #(not (:highlight %)) waypoints))
       waypoints)))
 
 (defn highlight-waypoints [mouse waypoints]
@@ -116,9 +119,16 @@
                           (filterv #(:click %) buttons)))]
     (apply-state-transforms state transforms)))
 
+(defn handle-mode-keys [keys mode]
+  (condp #(contains? %2 %1) keys
+    \D :delete
+    \I :insert
+    mode))
+
 (def pre-draw-transforms
   [
    [[:time] [:time] (fn [_ _] (current-time))]
+   [[:keyboard :pressed] [:mode] handle-mode-keys]
    [[:mouse :location] [:ui :buttons] update-button-hover]
    [[:mouse] [:ui :buttons] update-button-click]
    [[:ui :buttons] [] handle-button-actions]
@@ -162,13 +172,13 @@
 (defn on-key-down! [event]
   "Handle key down events."
   (.log js/console "Key down:" (str event))
-  (swap! app-state update-in [:keyboard :pressed] conj (.-keyCode event))
+  (swap! app-state update-in [:keyboard :pressed] conj (.fromCharCode js/String (.-keyCode event)))
   (on-event!))
 
 (defn on-key-up! [event]
   "Handle key up events."
   (.log js/console "Key up:" (str event))
-  (swap! app-state update-in [:keyboard :pressed] disj (.-keyCode event))
+  (swap! app-state update-in [:keyboard :pressed] disj (.fromCharCode js/String (.-keyCode event)))
   (on-event!))
 
 (defn on-resize! [event]

@@ -56,9 +56,11 @@
         canvas (util/get-canvas)]
     (.clearRect ctx 0 0 (.-width canvas) (.-height canvas))))
 
-(defn text-size [context text]
-  {:width (.-width (.measureText context text))
-   :height (.-height (.measureText context text))})
+(defn text-size [text & {:keys [size] :or {size 12}}]
+  (let [context (util/get-context)]
+    (set! (.-font context) (str size "px monospace"))
+    {:width (.-width (.measureText context text))
+     :height (.-height (.measureText context text))}))
 
 (defn draw-crosshairs
   ([coord] (draw-crosshairs coord default-color))
@@ -109,26 +111,35 @@
     (draw-text context (util/coord+ coord (util/->world 5 5))
                (util/pp-coord world-coords) default-color)))
 
+(defn draw-mode-info [mode]
+  (let [canvas (util/get-canvas)
+        context (util/get-context)
+        text (if (= :insert mode) "INSERT MODE" "DELETE MODE")
+        x-off (- (/ (:width (text-size text :size 14)) 2))
+        y-off 60
+        coord (util/coord+ (util/world-edge :bottom) (util/->world x-off y-off))]
+    (draw-text context coord text default-color :size 14)))
+
 (defn draw-connection-info [connection time]
   (let [canvas (util/get-canvas)
-        context (util/get-context)]
-    (let [text (if (:connected connection) "CONNECTED" "OFFLINE")
-          x (- (.-width canvas) (:width (text-size context text)) 30)
-          y 30]
-      (draw-text context (util/->canvas x y) text
-                 (if (:connected connection) default-color error-color) :size 14)
-      (draw-text context (util/->canvas (- x 72) (+ 30 y))
-                 (str "TIME " time) default-color :size 14))))
+        context (util/get-context)
+        text (if (:connected connection) "CONNECTED" "OFFLINE")
+        x (- (.-width canvas) (:width (text-size text :size 14)) 30)
+        y 30]
+    (draw-text context (util/->canvas x y) text
+               (if (:connected connection) default-color error-color) :size 14)
+    (draw-text context (util/->canvas (- x 72) (+ 30 y))
+               (str "TIME " time) default-color :size 14)))
 
 (defn draw-state-info [state]
   (let [canvas (util/get-canvas)
-        context (util/get-context)]
-    (let [x 30
-          y 90]
-      (doall (map-indexed
-              (fn [i kv]
-                (draw-text context (util/->canvas x (+ y (* 20 i))) (str kv) dark-color))
-              state)))))
+        context (util/get-context)
+        x 30
+        y 90]
+    (doall (map-indexed
+            (fn [i kv]
+              (draw-text context (util/->canvas x (+ y (* 20 i))) (str kv) dark-color))
+            state))))
 
 (defn draw-section [& {:keys [title coord items xform] :or {xform identity}}]
   "Draw a section of text on the screen containing the given items.
@@ -141,7 +152,7 @@ all of the items, items from the end of the list will be preferred." ;; Scrollin
     (draw-text context (util/->canvas x y) title default-color :size 14)
     (draw-line context
                (util/->canvas (- x 2) (+ y 3))
-               (util/->canvas (+ x 250 (:width (text-size context title))) (+ y 3))
+               (util/->canvas (+ x 250 (:width (text-size title))) (+ y 3))
                default-color)
     (doseq [[item offset] (map list items (iterate (fn [offset] (+ offset 18)) (- y 5)))]
       (draw-text context (util/->canvas x (+ y offset)) (str (xform item))
@@ -167,9 +178,10 @@ all of the items, items from the end of the list will be preferred." ;; Scrollin
   (draw-grid)
   (draw-crosshairs util/origin dark-color)
   (draw-crosshairs (get-in state [:mouse :location]))
-  (draw-ui-elements (get-in state [:ui]))
+  (draw-ui-elements (get state :ui))
   (draw-coordinates (get-in state [:mouse :location]))
-  (draw-connection-info (get-in state [:connection]) (get-in state [:time]))
+  (draw-connection-info (get state :connection) (get state :time))
+  (draw-mode-info (get state :mode))
   (draw-state-info state)
-  (draw-waypoints (get-in state [:waypoints]))
-  (draw-event-log (get-in state [:events])))
+  (draw-waypoints (get state :waypoints))
+  (draw-event-log (get state :events)))
