@@ -1,10 +1,11 @@
 RC2 - "Robot Controller 2"
 
-* API surface
+* Task API
+** API surface
 The RC2 API is task-based, exposing mechanisms for adding, removing, and retrieving tasks. The API
 provides these via a REST-style API surface which interacts with a centralized task store.
 
-** API Methods
+*** API Methods
 Note: All of these paths are relative to /api/v1/.
 
 *Tasks*
@@ -25,9 +26,9 @@ state or task.
 =GET /status= - get the current state of the robot.
 =GET /meta= - get metadata about the current server, such as uptime and load.
 
-* Conceptual overview
-** Tasks and events
-*** Tasks
+** Conceptual overview
+*** Tasks and events
+**** Tasks
 When a new task is received, it is added to a task listing and assigned an ID. The task listing is a
 mapping from ID to task description, where each task's ID is both /sequential/ and /unique/. The
 listing tracks the next ID available for assignment.
@@ -49,7 +50,7 @@ listing tracks the next ID available for assignment.
   }
 #+end_src
 
-*** Events
+**** Events
 Events are used to log state transitions for each task. They are tracked in a mapping just like
 tasks, from the event ID to the event description. Each event is associated with a single task, and
 describes a single state transition for that task.
@@ -66,7 +67,7 @@ describes a single state transition for that task.
   }
 #+end_src
 
-*** History
+**** History
 The event log contains the complete history of each task. When a new task is created, an event will
 be added to the log showing the creation:
 
@@ -95,8 +96,8 @@ Each update to task state will have its own event:
 Using the event log, the state of the system can be reconstructed as it was at any point during the
 system lifetime.
 
-** Execution
-*** State transition model
+*** Execution
+**** State transition model
 When a task is first added to the queue it is in state ~:new~. This state indicates that no
 processing has yet been performed on the task. When a worker becomes available, the task will be
 removed from the queue and move to state ~:processing~. The worker will perform any state
@@ -104,7 +105,7 @@ transitions or I/O operations required to complete the task, and update it to st
 all the sub-tasks are finished. At each point in the process, new events will be created to track
 state transitions for the task.
 
-*** Worker pools
+**** Worker pools
 Some types of tasks require exclusive access to the robot, such as ~:move~ commands. Others are able
 to be executed at any time, independent of other tasks. Exclusionary and non-exclusionary tasks are
 executed in different worker pools. The exclusionary pool consists of a single worker, whereas the
@@ -112,7 +113,7 @@ non-exclusionary pool can have any number of workers as supported by the underly
 platform. Non-exclusionary tasks can be made to execute on the exclusionary queue by setting the
 ~:affinity~ field on the task to ~serial~.
 
-*** Task dispatch
+**** Task dispatch
 Communication of tasks between workers is performed using asynchronous queues. When a task is
 created, state information as described above is added by the creating worker to the state model and
 the task ID is passed into a dispatch queue. The ID is then dequeued by a dispatch worker which
@@ -121,13 +122,13 @@ queues are then serviced by worker pools which execute the tasks using core libr
 update their state. When a task is dequeued for processing, it is updated to the ~:processing~
 state, and when it is completed the worker updates its state to ~:complete~.
 
-*** Cancellation and failures
+**** Cancellation and failures
 Cancellation is performed by enqueuing a task ID into a special 'cancellation queue'. This queue is
 consumed by a worker which simply updates the task state to ~:cancelled~. If another worker dequeues
 this task, it will discard it without further processing. Once a task has begun processing, it can
 no longer be cancelled.
 
-*** Flow diagram
+**** Flow diagram
 
 #+begin_src ditaa :file comms-flow.png
   
@@ -153,12 +154,12 @@ no longer be cancelled.
   
 #+end_src
 
-* Details
-** Task fields
+** Details
+*** Task fields
 When creating a new task, the programmer specifies the task type and any additional parameters
 required by that type. The currently supported task types are :move, :connect.
 
-*** Movement tasks
+**** Movement tasks
 Movement tasks direct the robot to change its position in the workspace. These tasks always have
 a :serial affinity, meaning they must be executed sequentially.
 - Type: :move
@@ -169,7 +170,7 @@ a :serial affinity, meaning they must be executed sequentially.
   - speeds: A map containing the desired motor operating speeds and accelerations. This map should
     follow the convention set by the currently installed RobotDriver.
 
-*** Connection tasks
+**** Connection tasks
 Connection tasks direct the server to switch its connection to a new device. Only one connection can
 be maintained per server and these tasks always have a :serial affinity.
 - Type: :connect
@@ -179,7 +180,7 @@ be maintained per server and these tasks always have a :serial affinity.
   - device-type: The type of device. Currently, only :serial is supported.
   - baud-rate: For serial devices, the speed of the connection.
 
-*** Calibration tasks
+**** Calibration tasks
 Calibration tasks set calibration parameters on the currently installed RobotDriver. It is up to the
 driver to determine what to do with the settings. It is permissible for a driver to instruct the
 robot to calibrate itself if possible, or to take settings directly via the API.
@@ -188,5 +189,40 @@ robot to calibrate itself if possible, or to take settings directly via the API.
 - Parameters: A map of calibration values. These are device specific and it is up to the programmer
   to understand what the driver expects.
 
-* Misc notes
- - Might be worthwhile to see if we can use Datomic to maintain our data structure for task state.
+* Executing Pick and Place Operations
+
+The Delta robot is primarily designed to perform Pick and Place (P&P) operations of the sort
+required during circuit board fabrication. At a high level, the general procedure for performing
+such an operation goes like this:
+
+  1. Identify the locations of "sources" and "sinks" - in this case, part dispensers and their
+     destinations on the board.
+  2. Plan a route for the arm to take which allows it to populate each sink from the correct source.
+  3. Execute the route for each part.
+
+In the RC2 Task API model, these operations are carried out by a combination of the client and
+server. The client is responsible for providing UI for the programmer to specify sources and sinks,
+displaying the resulting plan, and communicating with the server to specify tasks for the robot to
+perform. The server executes tasks as requested by the client, including moves and
+calibrations. Planning also occurs on the server via the Task API - this is so that clients can make
+use of the planning facilities without having to rewrite them.
+
+In more detail, the process looks like this:
+
+  1. Using the desired client, the programmer specifies sink and source locations and orientations.
+  2. The client issues a request for path planning, giving the desired sink and source
+     configuration in the request.
+  3. The client displays the planned path to the programmer, who then edits it or adjusts
+     sink/source configuration as necessary.
+  4. When the path looks good, the programmer requests execution of the plan. The client issues
+     tasks for each path segment (with =:serial= affinity) and interactively updates the interface
+     to display the state of the robot.
+
+* The RC2 Web Client
+
+/TODO/
+
+
+* Unimplemented Features
+  - [ ] Consider part orientations in planning phase
+  - [ ] Capture imagery from arm-mounted camera
