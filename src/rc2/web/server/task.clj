@@ -35,8 +35,7 @@
   is defaulted to serial."
   (swap! task-types assoc type {:handler handler
                                 :affinity affinity})
-  (println "Registered task type" type)
-  (println (str @task-types)))
+  (println "Registered task type" type))
 
 ;; This function is intended to be used only within this module. It is public only for unit testing.
 (defn do-task! [task handlers]

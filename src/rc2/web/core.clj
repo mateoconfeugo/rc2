@@ -7,6 +7,7 @@
            [rc2.lib.driver.pololu :as pol]
            [rc2.web.server.api :as api]
            [rc2.web.server.task :as task]
+           [rc2.web.server.handler :as handler]
            [clojure.tools.cli :as cli])
   (:gen-class))
 
@@ -50,5 +51,6 @@
                             :acceleration {:a max-accel :b max-accel :c max-accel}}))
     (println "Initializing task system")
     (task/init-workers! 5)
+    (handler/attach-handlers!)
     (api/start-api-server (Integer. port))
     (when-let [serial-port (:serial-port connection)] (serial/close serial-port))))

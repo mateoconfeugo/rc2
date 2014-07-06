@@ -3,11 +3,14 @@
             [rc2.web.server.task :refer :all]))
 
 (register-task-type! :move (constantly true) :affinity :serial)
+(register-task-type! :plan (constantly true) :affinity :parallel)
 
 (describe
  "make-task"
  (it "adds affinity to the task"
      (should= :serial (:affinity (make-task :move {:destination {:x 1 :y 2 :z 3}}))))
+ (it "uses type-specific affinity"
+     (should= :parallel (:affinity (make-task :plan {}))))
  (it "adds type to the task"
      (should= :move (:type (make-task :move {:destination {:x 1 :y 2 :z 3}}))))
  (it "adds a creation timestamp to the task"
