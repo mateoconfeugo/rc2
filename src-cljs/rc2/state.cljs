@@ -17,7 +17,9 @@
          :keyboard {:pressed #{}}
          :waypoints []
          :plan []
-         :parts [{:name "Test Part" :id 1}]
+         :parts {:selected 0
+                 :available {0 {:name "Test Part"}
+                             1 {:name "2nd Part"}}}
          :events []
          :ui {
               ;; Buttons have a name (rendered on the screen), a target vector, and a
@@ -92,7 +94,7 @@
         (conj waypoints {:location (:location mouse)
                          :highlight true
                          :kind (get-in state [:mode :secondary])
-                         :part-id 1}) ;; TODO Fix part IDs
+                         :part-id (get-in state [:parts :selected])})
         (filter #(not (:highlight %)) waypoints))
       waypoints)))
 
@@ -125,6 +127,16 @@
                           (filterv #(:click %) buttons)))]
     (apply-state-transforms state transforms)))
 
+(defn handle-part-keys [keys parts]
+  "Set the primary mode based on the current keys."
+  (if-let [part-num (first (->> keys
+                                (map (fn [k] (Number/parseInt k)))
+                                (filter (fn [k] (not (js/isNaN k))))))]
+    (if (< part-num (count (:available parts)))
+      (assoc parts :selected part-num)
+      parts)
+    parts))
+
 (defn handle-mode-keys [keys primary]
   "Set the primary mode based on the current keys."
   (condp #(contains? %2 %1) keys
@@ -149,6 +161,7 @@
    [[:time] [:time] (fn [_ _] (current-time))]
    [[:keyboard :pressed] [:mode :primary] handle-mode-keys]
    [[:keyboard :pressed] [:mode] handle-secondary-mode-keys]
+   [[:keyboard :pressed] [:parts] handle-part-keys]
    [[:mouse :location] [:ui :buttons] update-button-hover]
    [[:mouse] [:ui :buttons] update-button-click]
    [[:ui :buttons] [] handle-button-actions]
