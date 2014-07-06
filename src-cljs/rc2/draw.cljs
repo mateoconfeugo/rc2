@@ -162,11 +162,16 @@ all of the items, items from the end of the list will be preferred." ;; Scrollin
       (draw-text context (util/->canvas x (+ y offset)) (str (xform item))
                  (if (:highlight item) highlight-color default-color)))))
 
-(defn draw-waypoints [waypoints]
+(defn get-waypoint-text [parts wp]
+  (let [kind (if (= :source (:kind wp)) "SOURCE " "SINK   ")
+        coord (util/pp-coord (:location wp))
+        part (:name (get parts (:part-id wp)))]
+   (str kind coord " -> " part)))
+
+(defn draw-waypoints [waypoints parts]
   (draw-section :title "WAYPOINTS" :coord (util/->canvas 30 30)
                 :items waypoints
-                :xform (fn [wp] (str (if (= :source (:kind wp)) "SOURCE " "SINK   ")
-                                     (util/pp-coord (:location wp)))))
+                :xform (partial get-waypoint-text parts))
   (let [context (util/get-context)]
     (doseq [wp waypoints]
       (let [loc (:location wp)
@@ -190,7 +195,7 @@ all of the items, items from the end of the list will be preferred." ;; Scrollin
   (draw-section :title "PARTS"
                 :coord (util/->canvas 30 (+ 30 (/ (.-height (util/get-canvas)) 2)))
                 :items parts
-                :xform (fn [part] (str (:id part) ": " (:name part)))))
+                :xform (fn [[id part]] (str id ": " (:name part)))))
 
 (defn draw-event-log [events]
   (draw-section :title "EVENT LOG"
@@ -208,7 +213,7 @@ all of the items, items from the end of the list will be preferred." ;; Scrollin
   (draw-mode-info (get state :mode))
   (draw-state-info state)
   (draw-plan-segments (get state :plan))
-  (draw-waypoints (get state :waypoints))
-  (draw-part-list (get state :parts))
+  (draw-waypoints (get state :waypoints) (get-in state [:parts :available]))
+  (draw-part-list (get-in state [:parts :available]))
   ;;(draw-event-log (get state :events))
   )
