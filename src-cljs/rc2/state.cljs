@@ -34,8 +34,7 @@
          :waypoints []
          :plan []
          :parts {:selected 0
-                 :available {0 {:name "Test Part"}
-                             1 {:name "2nd Part"}}}
+                 :available {}}
          :events []
          :ui {
               ;; Buttons have a name (rendered on the screen), a target vector, and a
@@ -180,6 +179,7 @@
     (let [new-keys (set/difference (get-in state [:keyboard :pressed])
                                    (get-in state [:keyboard :previous-pressed]))
           new-keys (filter (fn [k] (js/isNaN (js/parseInt k))) new-keys)
+          new-keys (filter (fn [k] (not (contains? #{\newline \return \formfeed} k))) new-keys)
           part-id (get-in state [:parts :selected])]
       (update-in state [:parts :available part-id :name]
                  (fn [name]
@@ -187,10 +187,26 @@
                            name new-keys))))
     state))
 
+(defn handle-delete-mode-keys [_ state]
+  "Handle keypresses in delete mode."
+  (if (= :delete (get-in state [:mode :primary]))
+    (let [new-keys (set/difference (get-in state [:keyboard :pressed])
+                                   (get-in state [:keyboard :previous-pressed]))
+          part-id (get-in state [:parts :selected])]
+      (if (contains? new-keys "\b")
+        (-> state
+            (update-in [:parts :available] dissoc part-id)
+            (update-in [:parts] (fn [parts] (assoc parts :selected
+                                                   (or (first (keys (:available parts)))
+                                                       0)))))
+        state))
+    state))
+
 (def pre-draw-transforms
   [
    [[:time] [:time] (fn [_ _] (current-time))]
    [[:keyboard :pressed] [] handle-edit-mode-keys]
+   [[:keyboard :pressed] [] handle-delete-mode-keys]
    [[:keyboard :pressed] [:mode] handle-mode-keys]
    [[:keyboard :pressed] [:mode] handle-secondary-mode-keys]
    [[:keyboard :pressed] [] handle-part-keys]
