@@ -144,7 +144,7 @@
 (defn draw-state-info [state]
   (let [canvas (util/get-canvas)
         context (util/get-context)
-        x 30
+        x 230
         y 90]
     (doall (map-indexed
             (fn [i kv]
@@ -200,8 +200,8 @@ all of the items, items from the end of the list will be preferred." ;; Scrollin
 (defn draw-part-list [parts]
   (draw-section :title "PARTS"
                 :coord (util/->canvas 30 (+ 30 (/ (.-height (util/get-canvas)) 2)))
-                :items parts
-                :xform (fn [[id part]] (str id ": " (:name part)))))
+                :items (sort-by :id (map (fn [[id part]] (assoc part :id id)) parts))
+                :xform (fn [part] (str (:id part) ": " (:name part)))))
 
 (defn draw-event-log [events]
   (draw-section :title "EVENT LOG"
@@ -219,7 +219,7 @@ all of the items, items from the end of the list will be preferred." ;; Scrollin
   (draw-mode-info (get state :mode))
   (draw-state-info state)
   (draw-plan-segments (get state :plan))
-  (draw-waypoints (get state :waypoints) (get-in state [:parts :available]))
-  (draw-part-list (get-in state [:parts :available]))
+  (draw-waypoints (get state :waypoints) (get-in state [:parts]))
+  (draw-part-list (get-in state [:parts]))
   ;;(draw-event-log (get state :events))
   )

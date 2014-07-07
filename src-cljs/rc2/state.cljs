@@ -33,8 +33,7 @@
                     :previous-pressed #{}}
          :waypoints []
          :plan []
-         :parts {:selected 0
-                 :available {}}
+         :parts {}
          :events []
          :ui {
               ;; Buttons have a name (rendered on the screen), a target vector, and a
@@ -96,9 +95,15 @@
 
 (defn current-time [] (.getTime (js/Date.)))
 
+(defn highlighted? [m]
+  (:highlight m))
+
 (defn clicked? [mouse button]
   (and (= :down (get (:buttons mouse) button))
        (= :up (get (:previous-buttons mouse) button))))
+
+(defn get-selected-part-id [parts]
+  (first (first (filter (fn [[k v]] (highlighted? v)) parts))))
 
 (defn handle-new-waypoints [state waypoints]
   (let [mouse (:mouse state)
@@ -109,7 +114,7 @@
         (conj waypoints {:location (:location mouse)
                          :highlight true
                          :kind (get-in state [:mode :secondary])
-                         :part-id (get-in state [:parts :selected])})
+                         :part-id (get-selected-part-id (:parts state))})
         (filter #(not (:highlight %)) waypoints))
       waypoints)))
 
@@ -145,14 +150,19 @@
 (defn handle-part-keys [keys state]
   "Set the selected part based on the current keys."
   (let [parts (:parts state)
-        primary-mode (:primary (:mode state))]
-   (if-let [part-num (first (->> keys
-                                 (map js/parseInt)
-                                 (filter (fn [k] (not (js/isNaN k))))))]
-     (if (or (= :edit primary-mode) (contains? (:available parts) part-num))
-       (assoc-in state [:parts :selected] part-num)
-       state)
-     state)))
+        primary-mode (:primary (:mode state))
+        selected-part (get-selected-part-id (:parts state))]
+    (if-let [part-num (first (->> keys
+                                  (map js/parseInt)
+                                  (filter (fn [k] (not (js/isNaN k))))))]
+      (if (or (= :edit primary-mode) (contains? parts part-num))
+        (-> state
+            ((fn [s] (if selected-part
+                       (assoc-in s [:parts selected-part :highlight] false)
+                       s)))
+            (assoc-in [:parts part-num :highlight] true))
+        state)
+      state)))
 
 (defn handle-mode-keys [pressed-keys mode]
   "Set the primary mode based on the current keys."
@@ -180,11 +190,14 @@
                                    (get-in state [:keyboard :previous-pressed]))
           new-keys (filter (fn [k] (js/isNaN (js/parseInt k))) new-keys)
           new-keys (filter (fn [k] (not (contains? #{\newline \return \formfeed} k))) new-keys)
-          part-id (get-in state [:parts :selected])]
-      (update-in state [:parts :available part-id :name]
-                 (fn [name]
-                   (reduce (fn [n c] (if (= "\b" c) (apply str (butlast n)) (str n c)))
-                           name new-keys))))
+          part-id (get-selected-part-id (:parts state))]
+      (if part-id
+        (-> state
+            (update-in [:parts part-id :name]
+                       (fn [name]
+                         (reduce (fn [n c] (if (= "\b" c) (apply str (butlast n)) (str n c)))
+                                 name new-keys))))
+        state))
     state))
 
 (defn handle-delete-mode-keys [_ state]
@@ -192,13 +205,13 @@
   (if (= :delete (get-in state [:mode :primary]))
     (let [new-keys (set/difference (get-in state [:keyboard :pressed])
                                    (get-in state [:keyboard :previous-pressed]))
-          part-id (get-in state [:parts :selected])]
+          part-id (get-selected-part-id (:parts state))]
       (if (contains? new-keys "\b")
         (-> state
-            (update-in [:parts :available] dissoc part-id)
-            (update-in [:parts] (fn [parts] (assoc parts :selected
-                                                   (or (first (keys (:available parts)))
-                                                       0)))))
+            (update-in [:parts] dissoc part-id)
+            (update-in [:parts] (fn [parts] (if-let [key (first (keys parts))]
+                                              (assoc-in parts [key :highlight] true)
+                                              parts))))
         state))
     state))
 
@@ -276,7 +289,7 @@
   "Handle task completion events."
   (let [type (get task "type")
         result (get task "result")]
-    (.log js/console type " complete: " (str result))
+    (.log js/console type " task complete")
     (cond
      (= "plan" type) (assoc app-state :plan result)
      :else app-state)))
