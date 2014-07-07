@@ -21,8 +21,7 @@
         sources (into {} (map waypoint->source sources))
         sinks (filter (fn [wp] (= "sink" (:kind wp))) waypoints)
         sinks (mapv waypoint->sink sinks)]
-    (println "Planning route for sources: " sources " and sinks: " sinks)
-    (planner/optimize sources sinks)))
+    (planner/plan-pick-and-place sources sinks)))
 
 (defn attach-handlers! []
   "Attach handlers for the tasks API."
