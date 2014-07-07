@@ -1,7 +1,8 @@
 (ns rc2.state
   (:require [rc2.api :as api]
             [rc2.draw :as draw]
-            [rc2.util :as util]))
+            [rc2.util :as util]
+            [clojure.set :as set]))
 
 (declare plan-route!)
 
@@ -11,7 +12,11 @@
 
 ;; Keybindings for moving between primary modes.
 (def mode-keys {:delete {\I :insert}
-                :insert {\D :delete}})
+                :insert {\D :delete
+                         \E :edit}
+                :edit {\newline :insert
+                       \return :insert
+                       \formfeed :insert}})
 
 ;; Keybindings for changing secondary mode.
 (def sub-mode-keys {:delete {:default nil}
@@ -24,7 +29,8 @@
          :mouse {:location util/origin
                  :buttons {0 :up 1 :up 2 :up}
                  :previous-buttons {0 :up 1 :up 2 :up}}
-         :keyboard {:pressed #{}}
+         :keyboard {:pressed #{}
+                    :previous-pressed #{}}
          :waypoints []
          :plan []
          :parts {:selected 0
@@ -137,23 +143,26 @@
                           (filterv #(:click %) buttons)))]
     (apply-state-transforms state transforms)))
 
-(defn handle-part-keys [keys parts]
-  "Set the primary mode based on the current keys."
-  (if-let [part-num (first (->> keys
-                                (map (fn [k] (.parseInt js/Number k)))
-                                (filter (fn [k] (not (js/isNaN k))))))]
-    (if (< part-num (count (:available parts)))
-      (assoc parts :selected part-num)
-      parts)
-    parts))
+(defn handle-part-keys [keys state]
+  "Set the selected part based on the current keys."
+  (let [parts (:parts state)
+        primary-mode (:primary (:mode state))]
+   (if-let [part-num (first (->> keys
+                                 (map js/parseInt)
+                                 (filter (fn [k] (not (js/isNaN k))))))]
+     (if (or (= :edit primary-mode) (contains? (:available parts) part-num))
+       (assoc-in state [:parts :selected] part-num)
+       state)
+     state)))
 
-(defn handle-mode-keys [pressed-keys primary]
+(defn handle-mode-keys [pressed-keys mode]
   "Set the primary mode based on the current keys."
-  (let [mode-map (get mode-keys primary)
+  (let [primary (:primary mode)
+        mode-map (get mode-keys primary)
         key (first (filter (fn [k] (contains? (set (keys mode-map)) k)) pressed-keys))]
     (if-let [next-mode (get mode-map key)]
-      next-mode
-      primary)))
+      (assoc mode :primary next-mode :secondary nil)
+      mode)))
 
 (defn handle-secondary-mode-keys [pressed-keys mode]
   "Set the secondary mode based on the current keys."
@@ -165,12 +174,26 @@
                              next-mode
                              (or current-secondary (get mode-map :default))))))
 
+(defn handle-edit-mode-keys [keys state]
+  "Handle keypresses in edit mode."
+  (if (= :edit (get-in state [:mode :primary]))
+    (let [new-keys (set/difference (get-in state [:keyboard :pressed])
+                                   (get-in state [:keyboard :previous-pressed]))
+          new-keys (filter (fn [k] (js/isNaN (js/parseInt k))) new-keys)
+          part-id (get-in state [:parts :selected])]
+      (update-in state [:parts :available part-id :name]
+                 (fn [name]
+                   (reduce (fn [n c] (if (= "\b" c) (apply str (butlast n)) (str n c)))
+                           name new-keys))))
+    state))
+
 (def pre-draw-transforms
   [
    [[:time] [:time] (fn [_ _] (current-time))]
-   [[:keyboard :pressed] [:mode :primary] handle-mode-keys]
+   [[:keyboard :pressed] [] handle-edit-mode-keys]
+   [[:keyboard :pressed] [:mode] handle-mode-keys]
    [[:keyboard :pressed] [:mode] handle-secondary-mode-keys]
-   [[:keyboard :pressed] [:parts] handle-part-keys]
+   [[:keyboard :pressed] [] handle-part-keys]
    [[:mouse :location] [:ui :buttons] update-button-hover]
    [[:mouse] [:ui :buttons] update-button-click]
    [[:ui :buttons] [] handle-button-actions]
@@ -181,6 +204,7 @@
 (def post-draw-transforms
   [
    [[:mouse :buttons] [:mouse :previous-buttons] copy]
+   [[:keyboard :pressed] [:keyboard :previous-pressed] copy]
    ])
 
 (defn on-state-change! []
@@ -197,32 +221,38 @@
 
 (defn on-mouse-move! [event]
   "Handle mouse movement events."
+  (.preventDefault event)
   (swap! app-state update-in [:mouse :location]
          (fn [m] (util/canvas->world (util/->canvas (.-clientX event) (.-clientY event)))))
   (on-event!))
 
 (defn on-mouse-down! [event]
   "Handle mouse down events."
+  (.preventDefault event)
   (swap! app-state update-in [:mouse :buttons (.-button event)] (constantly :down))
   (on-event!))
 
 (defn on-mouse-up! [event]
   "Handle mouse up events."
+  (.preventDefault event)
   (swap! app-state update-in [:mouse :buttons (.-button event)] (constantly :up))
   (on-event!))
 
 (defn on-key-down! [event]
   "Handle key down events."
+  (.preventDefault event)
   (swap! app-state update-in [:keyboard :pressed] conj (.fromCharCode js/String (.-keyCode event)))
   (on-event!))
 
 (defn on-key-up! [event]
   "Handle key up events."
+  (.preventDefault event)
   (swap! app-state update-in [:keyboard :pressed] disj (.fromCharCode js/String (.-keyCode event)))
   (on-event!))
 
 (defn on-resize! [event]
   "Handle resize events."
+  (.preventDefault event)
   (draw/size-canvas-to-window!)
   (on-event!))
 

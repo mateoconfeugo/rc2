@@ -116,9 +116,15 @@
 (defn draw-mode-info [{:keys [primary secondary]}]
   (let [canvas (util/get-canvas)
         context (util/get-context)
-        text (if (= :insert primary)
-               (str (if (= :source secondary) "SOURCE" "SINK") " INSERT MODE")
-               "DELETE MODE")
+        primary-text (cond
+                      (= :insert primary) "INSERT"
+                      (= :delete primary) "DELETE"
+                      (= :edit primary) "EDIT")
+        secondary-text (cond
+                        (= :source secondary) "SOURCE "
+                        (= :sink secondary) "SINK "
+                        :else "")
+        text (str secondary-text primary-text " MODE")
         x-off (- (/ (:width (text-size text :size 14)) 2))
         y-off 60
         coord (util/coord+ (util/world-edge :bottom) (util/->world x-off y-off))]
