@@ -332,7 +332,8 @@
          (fn [resp]
            (swap! app-state update-task-state resp))
          (fn [err]
-           (swap! app-state update-in [:connection :connected] (constantly false)))))
+           (.log js/console "Error when checking on task state: " (str err))
+           (swap! app-state update-in [:tasks :pending] #(filterv (fn [t] (not= id t)) %)))))
       (swap! app-state update-in [:tasks :last-poll] (constantly now)))))
 
 (defn attach-handlers []
