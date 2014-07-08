@@ -40,14 +40,12 @@
   (if (empty? nodes)
     [current (path-length current)]
     (reduce (fn [cur-min next]
-              ;; (println "Next node =" next)
               (let [new-path (into current next)
                     new-len (path-length new-path)
                     new-nodes (remove #(= next %) nodes)
                     [cur-min-path cur-min-len] cur-min]
                 (if (< new-len cur-min-len)
-                  (do ;;(println "Path" path "is shortest so far (" len "vs" cur-min-len ")")
-                     (optimize-bounded-internal new-path new-nodes cur-min))
+                  (optimize-bounded-internal new-path new-nodes cur-min)
                   cur-min)))
             min nodes)))
 
@@ -57,6 +55,31 @@
   (let [nodes (map-sinks-to-sources sources sinks) ;; Nodes is the available source->sink vectors.
         [path len] (optimize-bounded-internal [] nodes [[] (Integer/MAX_VALUE)])]
     (println "Found path" path "of length" len)
+    path))
+
+(defn optimize-greedy-internal [current nodes]
+  (if (empty? nodes)
+    current
+    (do
+      (->> nodes
+          ;; Find the least-cost next node, return it and the remaining nodes.
+          (reduce (fn [cur-min next-node]
+                    (let [new-path (into current next-node)
+                          new-len (path-length new-path)
+                          new-nodes (remove #(= next-node %) nodes)
+                          [cur-min-path _ cur-min-len] cur-min]
+                      (if (< new-len cur-min-len)
+                        [new-path new-nodes new-len]
+                        cur-min)))
+                  [[] nodes Integer/MAX_VALUE])
+          ((fn [[path new-nodes len]] (optimize-greedy-internal path new-nodes)))))))
+
+(s/defn optimize-greedy :- PartList [sources :- SourceMap sinks :- PartList]
+  "Find an optimal path that fills all sinks from the correct sources, using branch and bound."
+  (println "Using greedy algorithm to plan.")
+  (let [nodes (map-sinks-to-sources sources sinks) ;; Nodes is the available source->sink vectors.
+        path (optimize-greedy-internal [] nodes)]
+    (println "Found path" path "of length" (path-length path))
     path))
 
 (s/defn plan-pick-and-place :- [Point] [sources :- SourceMap sinks :- PartList]

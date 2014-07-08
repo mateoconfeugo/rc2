@@ -42,6 +42,12 @@
      (should== optimal-path (optimize-bounded sources parts))))
 
 (describe
+ "optimize-greedy"
+ (it "returns a path for the parts & sources configuration provided"
+     ;; TODO Figure out a better test for this algorithm
+     (should= (count optimal-path) (count (optimize-greedy sources parts)))))
+
+(describe
  "plan-pick-and-place"
  (it "returns an optimal path for the parts & sources configuration provided"
      (should== optimal-path (plan-pick-and-place sources parts))))
