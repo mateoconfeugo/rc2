@@ -84,5 +84,4 @@
 
 (s/defn plan-pick-and-place :- [Point] [sources :- SourceMap sinks :- PartList]
   "Plan a pick and place sequence to populate the positions in sinks from sources."
-  ;; (optimize-brute-force sources sinks)
-  (optimize-bounded sources sinks))
+  (optimize-greedy sources sinks))
