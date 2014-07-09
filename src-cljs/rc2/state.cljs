@@ -31,8 +31,8 @@
                  :previous-buttons {0 :up 1 :up 2 :up}}
          :keyboard {:pressed #{}
                     :previous-pressed #{}}
-         :waypoints []
-         :plan []
+         :route {:waypoints []
+                 :plan []}
          :parts {}
          :events []
          :ui {
@@ -40,7 +40,7 @@
               ;; transform function. When the button is clicked the transform function
               ;; is called with the value in this state tree at the 'target' path,
               ;; which is then replaced with the returned value.
-              :buttons [{:text "Plan" :target [:waypoints] :hover false :click false
+              :buttons [{:text "Plan" :target [:route :waypoints] :hover false :click false
                          :xform (fn [waypoints]
                                   (plan-route! waypoints)
                                   waypoints)}
@@ -48,8 +48,8 @@
                          :xform (constantly true)}
                         {:text "Stop" :target [:running] :hover false :click false
                          :xform (constantly false)}
-                        {:text "Clear" :target [:waypoints] :hover false :click false
-                         :xform (constantly [])}]
+                        {:text "Clear" :target [:route] :hover false :click false
+                         :xform (constantly {:waypoints [] :plan []})}]
               }
          :mode {:primary  :insert
                 :secondary :sink}
@@ -227,8 +227,8 @@
    [[:mouse :location] [:ui :buttons] update-button-hover]
    [[:mouse] [:ui :buttons] update-button-click]
    [[:ui :buttons] [] handle-button-actions]
-   [[] [:waypoints] handle-new-waypoints]
-   [[:mouse :location] [:waypoints] highlight-waypoints]
+   [[] [:route :waypoints] handle-new-waypoints]
+   [[:mouse :location] [:route :waypoints] highlight-waypoints]
    ])
 
 (def post-draw-transforms
@@ -292,7 +292,7 @@
         result (get task "result")]
     (.log js/console type " task complete")
     (cond
-     (= "plan" type) (assoc app-state :plan result)
+     (= "plan" type) (assoc-in app-state [:route :plan] result)
      :else app-state)))
 
 (defn start-task! [task]
