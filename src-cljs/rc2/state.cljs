@@ -110,7 +110,8 @@
         buttons (get-in state [:ui :buttons])]
     (if (and (not (some #(:hover %) buttons))
              (clicked? mouse 0))
-      (if (= :insert (get-in state [:mode :primary]))
+      (if (and (= :insert (get-in state [:mode :primary]))
+               (get-selected-part-id (:parts state)))
         (conj waypoints {:location (:location mouse)
                          :highlight true
                          :kind (get-in state [:mode :secondary])
