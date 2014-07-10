@@ -215,6 +215,10 @@
         state))
     state))
 
+(defn update-plan-annotations [waypoints plan]
+  (let [loc->wp (into {} (map (fn [wp] [(:location wp) wp]) waypoints))]
+    (map (partial get loc->wp) (map #(:location %) plan))))
+
 (def pre-draw-transforms
   [
    [[:time] [:time] (fn [_ _] (current-time))]
@@ -228,6 +232,7 @@
    [[:ui :buttons] [] handle-button-actions]
    [[] [:route :waypoints] handle-new-waypoints]
    [[:mouse :location] [:route :waypoints] highlight-waypoints]
+   [[:route :waypoints] [:route :plan] update-plan-annotations]
    ])
 
 (def post-draw-transforms
@@ -285,7 +290,7 @@
   (draw/size-canvas-to-window!)
   (on-event!))
 
-(defn annotate-plan [plan waypoints]
+(defn annotate-plan [waypoints plan]
   (let [loc->wp (into {} (map (fn [wp] [(:location wp) wp]) waypoints))]
     (map (partial get loc->wp) (map util/->world plan))))
 
@@ -296,7 +301,8 @@
     (.log js/console type " task complete")
     (cond
      (= "plan" type) (assoc-in app-state [:route :plan]
-                               (annotate-plan result (get-in app-state [:route :waypoints])))
+                               (annotate-plan (get-in app-state [:route :waypoints])
+                                              result))
      :else app-state)))
 
 (defn update-task-state [app-state task]
