@@ -219,7 +219,7 @@ all of the items, items from the end of the list will be preferred." ;; Scrollin
   (draw-mode-info (get state :mode))
   (draw-state-info state)
   (draw-plan-segments (get-in state [:route :plan]))
-  (draw-waypoints (get-in state [:route :waypoints]) (get state [:parts]))
+  (draw-waypoints (get-in state [:route :waypoints]) (get state :parts))
   (draw-part-list (get state :parts))
   ;;(draw-event-log (get state :events))
   )
