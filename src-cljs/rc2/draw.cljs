@@ -203,11 +203,6 @@ all of the items, items from the end of the list will be preferred." ;; Scrollin
                 :items (sort-by :id (map (fn [[id part]] (assoc part :id id)) parts))
                 :xform (fn [part] (str (:id part) ": " (:name part)))))
 
-(defn draw-event-log [events]
-  (draw-section :title "EVENT LOG"
-                :coord (util/->canvas 30 (+ 30 (/ (.-height (util/get-canvas)) 2)))
-                :items events))
-
 (defn draw [state]
   (clear-canvas!)
   (draw-grid)
@@ -220,6 +215,4 @@ all of the items, items from the end of the list will be preferred." ;; Scrollin
   (draw-state-info state)
   (draw-plan-segments (get-in state [:route :plan]))
   (draw-waypoints (get-in state [:route :waypoints]) (get state :parts))
-  (draw-part-list (get state :parts))
-  ;;(draw-event-log (get state :events))
-  )
+  (draw-part-list (get state :parts)))
