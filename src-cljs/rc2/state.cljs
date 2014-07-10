@@ -294,12 +294,24 @@
      (= "plan" type) (assoc-in app-state [:route :plan] result)
      :else app-state)))
 
+(defn update-task-state [app-state task]
+  (let [state (get task "state")
+        id (get task "id")]
+    (if (= "complete" state)
+      (-> app-state
+          (on-task-completion task)
+          (update-in [:tasks :pending] (fn [ids] (filterv (fn [x] (not (= id x))) ids)))
+          (update-in [:tasks :complete] (fn [ids] (conj ids id))))
+      app-state)))
+
 (defn start-task! [task]
   "Send a task to the server and add its ID to the pending task list."
   (api/add-task! task
                  (fn [resp]
                    (.log js/console "Started task " (str resp) "id:" (get resp "id"))
-                   (swap! app-state update-in [:tasks :pending] #(conj % (get resp "id"))))
+                   (if (= "complete" (get resp "state"))
+                     (swap! app-state update-task-state resp)
+                     (swap! app-state update-in [:tasks :pending] #(conj % (get resp "id")))))
                  (fn [resp] (.log js/console "Failed to add task " (str task)))))
 
 (defn clean-waypoint [waypoint]
