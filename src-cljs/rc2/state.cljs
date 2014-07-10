@@ -33,7 +33,7 @@
                     :previous-pressed #{}}
          :route {:waypoints []
                  :plan []}
-         :parts {}
+         :parts {0 {:name "DEFAULT" :highlight true}}
          :ui {
               ;; Buttons have a name (rendered on the screen), a target vector, and a
               ;; transform function. When the button is clicked the transform function
