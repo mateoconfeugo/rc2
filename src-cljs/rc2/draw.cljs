@@ -6,6 +6,7 @@
 (def grid-color "#2E3639")
 (def highlight-color "#FAC1B1")
 (def error-color "#FF0000")
+(def delete-color "#FF0000")
 (def source-color "#ACAB69")
 (def sink-color "#8869AC")
 
@@ -107,11 +108,28 @@
   (let [{:keys [buttons]} elts]
     (draw-buttons buttons)))
 
-(defn draw-coordinates [coord]
+(defn mode-color [mode]
+  (condp = (:primary mode)
+    :delete delete-color
+    :insert (condp = (:secondary mode)
+              :source source-color
+              :sink sink-color
+              default-color)
+    :edit dark-color
+    default-color))
+
+(defn draw-coordinates [mode coord]
   (let [context (util/get-context)
         world-coords (util/canvas->world coord)]
     (draw-text context (util/coord+ coord (util/->world 5 5))
-               (util/pp-coord world-coords) default-color)))
+               (util/pp-coord world-coords) (mode-color mode))))
+
+(defn draw-current-part [mode coord parts]
+  (let [part-name (:name (first (filter (fn [p] (:highlight p)) (vals parts))))
+        part-name (or part-name "")
+        context (util/get-context)]
+    (draw-text context (util/coord+ (util/->world (- 0 (:width (text-size part-name)) 5) 5) coord)
+               part-name (mode-color mode))))
 
 (defn draw-mode-info [{:keys [primary secondary]}]
   (let [canvas (util/get-canvas)
@@ -200,17 +218,17 @@ all of the items, items from the end of the list will be preferred." ;; Scrollin
             end (second segment)]
         (draw-line context start end default-color)))))
 
-(defn draw-part-list [parts]
-  (draw-section :title "PARTS"
-                :coord (util/->canvas 30 (+ 30 (/ (.-height (util/get-canvas)) 2)))
-                :items (sort-by :id (map (fn [[id part]] (assoc part :id id)) parts))
-                :xform (fn [part] (str (:id part) ": " (:name part)))))
-
 (defn draw-plan [plan parts]
   (draw-section :title "PLAN"
                 :coord (util/->canvas (- (.-width (util/get-canvas)) 250 80) 30)
                 :items plan
                 :xform (partial get-waypoint-text parts)))
+
+(defn draw-part-list [parts]
+  (draw-section :title "PARTS"
+                :coord (util/->canvas 30 (+ 30 (/ (.-height (util/get-canvas)) 2)))
+                :items (sort-by :id (map (fn [[id part]] (assoc part :id id)) parts))
+                :xform (fn [part] (str (:id part) ": " (:name part)))))
 
 (defn draw [state]
   (clear-canvas!)
@@ -218,7 +236,8 @@ all of the items, items from the end of the list will be preferred." ;; Scrollin
   (draw-crosshairs util/origin dark-color)
   (draw-crosshairs (get-in state [:mouse :location]))
   (draw-ui-elements (get state :ui))
-  (draw-coordinates (get-in state [:mouse :location]))
+  (draw-coordinates (get state :mode) (get-in state [:mouse :location]))
+  (draw-current-part (get state :mode) (get-in state [:mouse :location]) (get state :parts))
   (draw-connection-info (get state :connection) (get state :time))
   (draw-mode-info (get state :mode))
   (draw-state-info state)
