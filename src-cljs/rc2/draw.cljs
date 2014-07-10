@@ -135,7 +135,7 @@
         context (util/get-context)
         text (if (:connected connection) "CONNECTED" "OFFLINE")
         x (- (.-width canvas) (:width (text-size text :size 14)) 30)
-        y 30]
+        y (- (.-height canvas) 60)]
     (draw-text context (util/->canvas x y) text
                (if (:connected connection) default-color error-color) :size 14)
     (draw-text context (util/->canvas (- x 72) (+ 30 y))
@@ -151,18 +151,20 @@
               (draw-text context (util/->canvas x (+ y (* 20 i))) (str kv) dark-color))
             state))))
 
-(defn draw-section [& {:keys [title coord items xform] :or {xform identity}}]
+(defn draw-section [& {:keys [title coord items xform]
+                       :or {xform identity}}]
   "Draw a section of text on the screen containing the given items.
 
 A section consists of a title followed by each item in items. If there is not enough space to draw
 all of the items, items from the end of the list will be preferred." ;; Scrolling?
   (let [canvas (util/get-canvas)
         context (util/get-context)
-        {:keys [x y]} (util/world->canvas coord)]
-    (draw-text context (util/->canvas x y) title default-color :size 14)
+        {:keys [x y]} (util/world->canvas coord)
+        width 300]
+    (draw-text context (util/->canvas (+ x 2) y) title default-color :size 14)
     (draw-line context
-               (util/->canvas (- x 2) (+ y 3))
-               (util/->canvas (+ x 250 (:width (text-size title))) (+ y 3))
+               (util/->canvas x (+ y 3))
+               (util/->canvas (+ x width) (+ y 3))
                default-color)
     (doseq [[item offset] (map list items (iterate (fn [offset] (+ offset 18)) 22))]
       (draw-text context (util/->canvas x (+ y offset)) (str (xform item))
@@ -191,10 +193,11 @@ all of the items, items from the end of the list will be preferred." ;; Scrollin
   (map vector coll (drop 1 coll)))
 
 (defn draw-plan-segments [plan]
-  (let [context (util/get-context)]
-    (doseq [segment (pairs plan)]
-      (let [start (apply util/->world (first segment))
-            end (apply util/->world (second segment))]
+  (let [context (util/get-context)
+        segments (pairs (map #(:location %) plan))]
+    (doseq [segment segments]
+      (let [start (first segment)
+            end (second segment)]
         (draw-line context start end default-color)))))
 
 (defn draw-part-list [parts]
@@ -202,6 +205,12 @@ all of the items, items from the end of the list will be preferred." ;; Scrollin
                 :coord (util/->canvas 30 (+ 30 (/ (.-height (util/get-canvas)) 2)))
                 :items (sort-by :id (map (fn [[id part]] (assoc part :id id)) parts))
                 :xform (fn [part] (str (:id part) ": " (:name part)))))
+
+(defn draw-plan [plan parts]
+  (draw-section :title "PLAN"
+                :coord (util/->canvas (- (.-width (util/get-canvas)) 250 80) 30)
+                :items plan
+                :xform (partial get-waypoint-text parts)))
 
 (defn draw [state]
   (clear-canvas!)
@@ -214,5 +223,6 @@ all of the items, items from the end of the list will be preferred." ;; Scrollin
   (draw-mode-info (get state :mode))
   (draw-state-info state)
   (draw-plan-segments (get-in state [:route :plan]))
+  (draw-plan (get-in state [:route :plan]) (get state :parts))
   (draw-waypoints (get-in state [:route :waypoints]) (get state :parts))
   (draw-part-list (get state :parts)))

@@ -25,12 +25,14 @@
 (defn ->world
   "Create a world coordinate."
   ([x y z] {:x x :y y :z z :type :world})
-  ([x y] (->world x y 0)))
+  ([x y] (->world x y 0))
+  ([[x y z]] (->world x y z)))
 
 (defn ->canvas
   "Create a canvas coordinate."
   ([x y z]  {:x x :y y :z z :type :canvas})
-  ([x y] (->canvas x y 0)))
+  ([x y] (->canvas x y 0))
+  ([[x y z]] (->canvas x y z)))
 
 (defn screen->canvas [{:keys [x y]}]
   "Convert screen coordinates to canvas coordinates."

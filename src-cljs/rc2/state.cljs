@@ -285,13 +285,18 @@
   (draw/size-canvas-to-window!)
   (on-event!))
 
+(defn annotate-plan [plan waypoints]
+  (let [loc->wp (into {} (map (fn [wp] [(:location wp) wp]) waypoints))]
+    (map (partial get loc->wp) (map util/->world plan))))
+
 (defn on-task-completion [app-state task]
   "Handle task completion events."
   (let [type (get task "type")
         result (get task "result")]
     (.log js/console type " task complete")
     (cond
-     (= "plan" type) (assoc-in app-state [:route :plan] result)
+     (= "plan" type) (assoc-in app-state [:route :plan]
+                               (annotate-plan result (get-in app-state [:route :waypoints])))
      :else app-state)))
 
 (defn update-task-state [app-state task]
@@ -335,16 +340,6 @@
                       (swap! app-state update-in [:connection :connected] (constantly false)))))
     (when (< heartbeat-timeout time-since-heartbeat)
       (swap! app-state update-in [:connection :connected] (constantly false)))))
-
-(defn update-task-state [app-state task]
-  (let [state (get task "state")
-        id (get task "id")]
-    (if (= "complete" state)
-      (-> app-state
-          (on-task-completion task)
-          (update-in [:tasks :pending] (fn [ids] (filterv (fn [x] (not (= id x))) ids)))
-          (update-in [:tasks :complete] (fn [ids] (conj ids id))))
-      app-state)))
 
 (defn check-tasks! []
   (let [now (current-time)
