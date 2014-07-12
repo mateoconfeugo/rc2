@@ -131,27 +131,27 @@ no longer be cancelled.
 **** Flow diagram
 
 #+begin_src ditaa :file comms-flow.png
-  
+
   +----------+     +-------------------+     +-------------------+
   | Dispatch |     |   Exclusionary    |     |    Exclusionary   |
   |  Queue   |---->|      Queue        |---->|      Worker       |
   |   {s}    |     |       {s}         |  +->|                   |
   |          |     +-------------------+  |  +-------------------+
-  |          |                            | 
+  |          |                            |
   |          |     +-------------------+  |  +-------------------+
   |          |     |  NonExclusionary  |  |  |  NonExclusionary  |
   |          |---->|      Queue        |--+->|      Worker       |
   |          |     |       {s}         |  +->|                   |
   +----------+     +-------------------+  |  +-------------------+
-                                          |             
-  +----------+                            |             
-  | Cancel   |                            |             
-  | Queue    |                            |             
-  |   {s}    |----------------------------+             
+                                          |
+  +----------+                            |
+  | Cancel   |                            |
+  | Queue    |                            |
+  |   {s}    |----------------------------+
   |          |
   |          |
   +----------+
-  
+
 #+end_src
 
 ** Details
@@ -215,14 +215,53 @@ In more detail, the process looks like this:
   3. The client displays the planned path to the programmer, who then edits it or adjusts
      sink/source configuration as necessary.
   4. When the path looks good, the programmer requests execution of the plan. The client issues
-     tasks for each path segment (with =:serial= affinity) and interactively updates the interface
-     to display the state of the robot.
+     tasks for each path segment and interactively updates the interface to display the state of the
+     robot.
 
 * The RC2 Web Client
 
-/TODO/
+  The default client for the RC2 API is a web-based application written in ClojureScript and
+included with the RC2 server. The application can be launched by requesting the root page of a
+running API server, and provides a graphical, interactive environment for:
 
+  - specifying components,
+  - setting source and sink locations,
+  - controlling robot position,
+  - visualizing planner output,
+  - interactively executing planned routes
+  - etc.
+
+** State management on the client
+
+   Architecturally, the client is broken into two major components. All of the application state
+   which is persistent across frames or originates from user input is handled in the rc2.state
+   namespace. This includes event handlers and transformation functions which alter the previous
+   frame's state prior to rendering each frame. All of the drawing functions are kept separately, in
+   the rc2.draw namespace. Drawing functions have access only to a snapshot of the application state
+   for the current frame, and no modifications to that state are allowed to exit the namespace. This
+   simplifies state management significantly, as all modification to the application state occurs
+   centrally and functionally.
+
+   To preserve these properties, the majority of state transformation occurs through the function
+   =apply-state-transforms=. This function takes a state snapshot and a sequence of transform
+   definitions and yields an updated state snapshot obtained by applying each of the transforms in
+   order. Each transform sets a pair of paths and a function which takes the input and yields the
+   desired output. =apply-state-transforms= applies each transform to the value located in the state
+   snapshot at the input path and stores the resulting value under the output path. By doing this,
+   the transform functions are able to be written generically - for example, the =copy= transform
+   simply copies the value from the input path to the output path, and can be applied anywhere in
+   the state tree without modification. Additionally, most modifications to the structure of the
+   application state are trivial to make, as only the relevant paths in the transform definitions
+   need be modified.
+
+   Because =apply-state-transforms= is a pure function with no side effects (though its transforms
+   may not be), it is possible to use in transform functions themselves. The =handle-button-actions=
+   transform does this in order to provide similarly generic actions to UI elements. Buttons in the
+   application include a transform which updates portions of the state tree in the same way that
+   the general transforms do, and these actions will be carried out when the button is clicked.
 
 * Unimplemented Features
   - [ ] Consider part orientations in planning phase
   - [ ] Capture imagery from arm-mounted camera
+  - [ ] Display event log
+  - [ ] Provide UI/API for calibrating the robot
