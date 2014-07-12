@@ -260,6 +260,16 @@ running API server, and provides a graphical, interactive environment for:
    application include a transform which updates portions of the state tree in the same way that
    the general transforms do, and these actions will be carried out when the button is clicked.
 
+** Coordinate systems
+
+   The RC2 client uses an HTML5 Canvas to render its interface. Because the screen coordinate system
+   does not match the real-world coordinate system used by the robot, a set of convenience functions
+   are provided for converting between world and canvas coordinates. Because these conversions are
+   cheap and easily reversible, functions taking coordinate parameters should convert all parameters
+   to the desired coordinate space explicitly rather than rely on callers to provide coordinates of
+   a specific type. Note that the RC2 REST API only deals in world coordinates; there is no concept
+   of a canvas coordinate outside of the client.
+
 * Unimplemented Features
   - [ ] Consider part orientations in planning phase
   - [ ] Capture imagery from arm-mounted camera
