@@ -11,6 +11,7 @@
 (def sink-color "#8869AC")
 
 (def waypoint-radius 5)
+(def animation-radius 3)
 (def button-size 100)
 
 (defn size-canvas-to-window! []
@@ -223,7 +224,7 @@ all of the items, items from the end of the list will be preferred." ;; Scrollin
     (let [base (:location (nth plan (:index anim-state)))
           loc (util/coord+ (:offsets anim-state) base)
           context (util/get-context)]
-      (draw-circle context loc waypoint-radius default-color))))
+      (draw-circle context loc animation-radius default-color))))
 
 (defn draw-plan [plan parts]
   (draw-section :title "PLAN"
@@ -249,7 +250,7 @@ all of the items, items from the end of the list will be preferred." ;; Scrollin
   (draw-mode-info (get state :mode))
   (draw-state-info state)
   (draw-plan-segments (get-in state [:route :plan]))
-  (draw-plan-animation (get-in state [:route :plan]) (get-in state [:route :animation]))
   (draw-plan (get-in state [:route :plan]) (get state :parts))
   (draw-waypoints (get-in state [:route :waypoints]) (get state :parts))
+  (draw-plan-animation (get-in state [:route :plan]) (get-in state [:route :animation]))
   (draw-part-list (get state :parts)))
