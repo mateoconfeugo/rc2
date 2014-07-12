@@ -5,13 +5,14 @@
    [compojure.core :refer [defroutes ANY GET POST]]
    [compojure.handler :refer [site]]
    [compojure.route :as route]
+   [liberator.core :refer [resource defresource]]
    [org.httpkit.server :as server]
    [rc2.web.server.task :as task]
+   [ring.middleware.json :refer [wrap-json-response wrap-json-body]]
+   [ring.middleware.params :refer [wrap-params]]
    [ring.middleware.reload :as reload]
    [ring.middleware.stacktrace :as trace]
-   [liberator.core :refer [resource defresource]]
-   [ring.middleware.params :refer [wrap-params]]
-   [ring.middleware.json :refer [wrap-json-response wrap-json-body]]))
+   [ring.util.response :as resp]))
 
 (def start-time 0)
 (def api-server (atom nil))
@@ -58,6 +59,7 @@
                  :handle-ok (fn [_] {:status :online
                                      :uptime (int (/ (- (System/currentTimeMillis)
                                                         start-time) 1000))})))
+  (GET "/" [] (resp/resource-response "index.html" {:root "public"}))
   (route/resources "/")
   (route/not-found "Not Found"))
 
