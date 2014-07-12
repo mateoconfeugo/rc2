@@ -24,6 +24,10 @@
                              \S :sink
                              :default :sink}})
 
+(def default-animation-state {:index 0
+                              :offsets (util/->world 0 0)})
+(def animation-step-distance 5)
+
 (def app-state
   (atom {
          :mouse {:location util/origin
@@ -32,7 +36,8 @@
          :keyboard {:pressed #{}
                     :previous-pressed #{}}
          :route {:waypoints []
-                 :plan []}
+                 :plan []
+                 :animation default-animation-state}
          :parts {0 {:name "DEFAULT" :highlight true}}
          :ui {
               ;; Buttons have a name (rendered on the screen), a target vector, and a
@@ -219,6 +224,25 @@
   (let [loc->wp (into {} (map (fn [wp] [(:location wp) wp]) waypoints))]
     (map (partial get loc->wp) (map #(:location %) plan))))
 
+(defn update-plan-animation [plan anim-state]
+  (if (not (empty? plan))
+    (let [last-point (:location (nth plan (:index anim-state)))
+          next-point (:location (nth plan (+ 1 (:index anim-state))))
+          current-offsets (:offsets anim-state)
+          current-location (util/coord+ current-offsets last-point)
+          next-offsets (util/coord+
+                        current-offsets
+                        (util/scale-to (util/coord- next-point last-point) animation-step-distance))
+          next-location (util/coord+ next-offsets last-point)
+          past-next (< (util/distance last-point next-point)
+                       (util/distance last-point next-location))]
+      (if (not past-next)
+        (assoc anim-state :offsets next-offsets)
+        (assoc anim-state
+          :offsets util/origin
+          :index (mod (+ 1 (:index anim-state)) (- (count plan) 1)))))
+    default-animation-state))
+
 (def pre-draw-transforms
   [
    [[:time] [:time] (fn [_ _] (current-time))]
@@ -233,6 +257,7 @@
    [[] [:route :waypoints] handle-new-waypoints]
    [[:mouse :location] [:route :waypoints] highlight-waypoints]
    [[:route :waypoints] [:route :plan] update-plan-annotations]
+   [[:route :plan] [:route :animation] update-plan-animation]
    ])
 
 (def post-draw-transforms
@@ -300,9 +325,11 @@
         result (get task "result")]
     (.log js/console type " task complete")
     (cond
-     (= "plan" type) (assoc-in app-state [:route :plan]
-                               (annotate-plan (get-in app-state [:route :waypoints])
-                                              result))
+     (= "plan" type) (-> app-state
+                         (assoc-in [:route :plan]
+                                   (annotate-plan (get-in app-state [:route :waypoints])
+                                                  result))
+                         (assoc-in [:route :animation] default-animation-state))
      :else app-state)))
 
 (defn update-task-state [app-state task]

@@ -82,13 +82,21 @@
         {x2 :x y2 :y z2 :z} (coerce-coord c1 c2)]
     {:x (- x1 x2) :y (- y1 y2) :z (- z1 z2) :type (:type c1)}))
 
-(defn distance [c1 c2]
-  (let [{x1 :x y1 :y z1 :z} c1
-        {x2 :x y2 :y z2 :z} (coerce-coord c1 c2)
-        dx (- x1 x2)
-        dy (- y1 y2)
-        dz (- z1 z2)]
-    (.sqrt js/Math (+ (* dx dx) (* dy dy) (* dz dz)))))
+(defn distance
+  ([c1] (distance origin c1))
+  ([c1 c2]
+     (let [{x1 :x y1 :y z1 :z} c1
+           {x2 :x y2 :y z2 :z} (coerce-coord c1 c2)
+           dx (- x1 x2)
+           dy (- y1 y2)
+           dz (- z1 z2)]
+       (.sqrt js/Math (+ (* dx dx) (* dy dy) (* dz dz))))))
+
+(defn scale-to [c length]
+  (let [{x :x y :y z :z} c
+        current-len (distance origin c)
+        scale-factor (/ length current-len)]
+    (assoc c :x (* x scale-factor) :y (* y scale-factor) :z (* z scale-factor))))
 
 (defn world-edge [type]
   "Get a world coordinate lying at the extreme of an axis.

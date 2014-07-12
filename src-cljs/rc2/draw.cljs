@@ -218,6 +218,13 @@ all of the items, items from the end of the list will be preferred." ;; Scrollin
             end (second segment)]
         (draw-line context start end default-color)))))
 
+(defn draw-plan-animation [plan anim-state]
+  (when (not (empty? plan))
+    (let [base (:location (nth plan (:index anim-state)))
+          loc (util/coord+ (:offsets anim-state) base)
+          context (util/get-context)]
+      (draw-circle context loc waypoint-radius default-color))))
+
 (defn draw-plan [plan parts]
   (draw-section :title "PLAN"
                 :coord (util/->canvas (- (.-width (util/get-canvas)) 250 80) 30)
@@ -242,6 +249,7 @@ all of the items, items from the end of the list will be preferred." ;; Scrollin
   (draw-mode-info (get state :mode))
   (draw-state-info state)
   (draw-plan-segments (get-in state [:route :plan]))
+  (draw-plan-animation (get-in state [:route :plan]) (get-in state [:route :animation]))
   (draw-plan (get-in state [:route :plan]) (get state :parts))
   (draw-waypoints (get-in state [:route :waypoints]) (get state :parts))
   (draw-part-list (get state :parts)))
