@@ -14,7 +14,6 @@
                  [org.clojure/clojure "1.5.1"]
                  [org.clojure/clojurescript "0.0-2234"]
                  [org.clojure/core.async "0.1.0-SNAPSHOT"]
-                 [org.clojure/core.typed "0.2.13"]
                  [org.clojure/math.combinatorics "0.0.7"]
                  [org.clojure/math.numeric-tower "0.0.2"]
                  [org.clojure/tools.cli "0.2.4"]
@@ -46,5 +45,4 @@
                                          :pretty-print true}
                               :notify-command ["resources/specljs-runner.js"
                                                "target/unit-test.js"]}}}
-  :core.typed {:check [rc2.lib.math rc2.lib.position]}
   :main rc2.web.core)

@@ -1,55 +1,32 @@
 (ns rc2.lib.position
   (:use clojure.tools.trace)
   (:require [rc2.lib.math :as math]
-            [clojure.core.typed :as type])
+            [schema.core :as s])
   (:import [clojure.lang Seqable]))
 
-(type/def-alias Vec '[Number Number Number])
+(def Vec [(s/one s/Num "x") (s/one s/Num "y") (s/one s/Num "z")])
 
-;; TODO Migrate all of these functions from core/typed to Schema.
-(type/ann ^:no-check vec? (predicate Vec))
-(defn vec? [coord]
-  "Returns true if 'coord represents a vec in 3-space."
-  (if (and (sequential? coord)
-           (= 3 (count coord))
-           (every? number? coord))
-    true
-    false))
-
-(type/ann ->vec (Fn [(U (type/NonEmptyLazySeq Number)
-                        (I (Seqable Number) (ExactCount 3))) -> Vec]
-                    [Number Number Number -> Vec]))
-(defn ->vec
+(s/defn ->vec :- Vec
   "Get a new vec coordinate for [x,y,z]."
-  ([p]  {:post [(vec? %)]}
-     (when (and (= 3 (count p)) (every? number? p)) (apply vector p)))
-  ([x y z]  {:post [(vec? %)]}
-     (when (every? number? [x y z]) [x y z])))
+  ([p] (when (and (= 3 (count p)) (every? number? p)) (apply vector p)))
+  ([x y z] (when (every? number? [x y z]) [x y z])))
 
-(type/ann origin Vec)
 (def origin (->vec 0 0 0))
 
-(type/ann ^:no-check ->vec-vector [Vec Vec -> Vec])
-(defn ->vec-vector [p1 p2]
-  {:pre [(and (vec? p1) (vec? p2))]}
+(s/defn ->vec-vector :- Vec [p1 :- Vec p2 :- Vec]
   "Compute the vector connecting p1 and p2."
   (->vec (map - p2 p1)))
 
-(type/ann vector-length [Vec -> Number])
-(defn vector-length [v]
+(s/defn vector-length :- s/Num [v :- Vec]
   "Find the length of a vector."
   (math/sqrt (reduce + (map math/square v))))
 
-(type/ann displacement (Fn [Vec -> Number]
-                         [Vec Vec -> Number]))
-(defn displacement
+(s/defn displacement :- s/Num
   "Find the distance between two vecs"
-  ([p] (displacement origin p))
-  ([p1 p2] (vector-length (->vec-vector p1 p2))))
+  ([p :- Vec] (displacement origin p))
+  ([p1 :- Vec p2 :- Vec] (vector-length (->vec-vector p1 p2))))
 
-(type/ann rotate (Fn [Vec Number -> Vec]))
-(defn rotate [position angle]
-  {:pre [(vec? position)]}
+(s/defn rotate :- Vec [position :- Vec angle :- s/Num]
   "In three dimensions, rotate 'position around the Z axis by 'angle radians."
   (let [ct (math/cos angle)
         st (math/sin angle)
@@ -59,40 +36,32 @@
      (+ (* (- st) x) (* ct y))
      z)))
 
-(type/ann translate (Fn [Vec Vec -> Vec]))
-(defn translate [p v]
-  {:pre [(vec? p) (vec? v)]}
+(s/defn translate :- Vec [p :- Vec v :- Vec]
   "Translate 'p along 'v."
   (->vec (map + p v)))
 
-(type/ann scale (Fn [Number Vec -> Vec]))
-(defn scale [n v]
+(s/defn scale :- Vec [n :- s/Num v :- Vec]
   "Scale the vector 'v by 'n"
   (->vec (map (partial * n) v)))
 
-(type/ann within (Fn [Number Vec Vec
-                      -> Boolean]))
-(defn within [dist p1 p2]
+(s/defn within :- s/Bool [dist :- s/Num p1 :- Vec p2 :- Vec]
   "Test if 'p1 and 'p2 are within 'dist of each other."
   (if (> dist (math/abs (displacement p1 p2)))
     true
     false))
 
-(type/ann ->unit-vector [Vec -> Vec])
-(defn ->unit-vector [v]
+(s/defn ->unit-vector :- Vec [v :- Vec]
   "Convert the vector defined by two vecs (p1,p2) into a unit vector (i,j,k)"
   (let [length (vector-length v)]
-    (->vec (map (type/fn> [x :- Number] (/ x length)) v))))
+    (->vec (map (fn [x] (/ x length)) v))))
 
-(type/ann interpolate (Fn [Vec Vec Number
-                           -> (Seqable Vec)]))
-(defn interpolate [p1 p2 interval]
+(s/defn interpolate :- [Vec] [p1 :- Vec p2 :- Vec interval :- s/Num]
   "Create a set of vecs on the line between p1 and p2"
   (let [count (math/abs (/ (displacement p1 p2) interval))
         v (->vec-vector p1 p2)
         uv (->unit-vector v)]
     (concat
-     (type/for> :- Vec [n :- Number (range count)]
+     (for [n (range count)]
        (translate p1
                   (scale (* n interval) uv)))
      (list p2))))

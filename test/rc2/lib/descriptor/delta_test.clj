@@ -44,21 +44,21 @@
      (should (within? angle-tolerance (- (/ math/pi 4))
                       (let [z-val (- (* (+ upper lower) (math/sin (/ math/pi 4))))]
                         (delta/inverse-3d test-descriptor (pos/->vec 0 0 z-val))))))
- (it "a point on the Z as far down as possible should point straight down."
+ (it "a point on the Z as far down as possible should point straight down"
      (should (within? angle-tolerance (- (/ math/pi 2))
                       (delta/inverse-3d test-descriptor (pos/->vec 0 0 (- 0 upper lower))))))
- (it "a point along the x axis should form an angle above the x axis."
+ (it "a point along the x axis should form an angle above the x axis"
      (should (within? angle-tolerance (/ math/pi 3)
                       (delta/inverse-3d test-descriptor (pos/->vec 10 0 0)))))
- (it "a point just below the x axis should form an angle above the x axis."
+ (it "a point just below the x axis should form an angle above the x axis"
      (should (within? angle-tolerance (/ math/pi 6)
                       (delta/inverse-3d test-descriptor
                                         (pos/->vec (* 10 (math/sin (/ math/pi 3))) 0 (- 5))))))
- (it "when the base and end effector aren't the same length"
+ (it "when the base is longer than the end effector, the math still works"
      (should (within? angle-tolerance 0
                       (delta/inverse-3d (assoc test-descriptor :base (+ base 2))
                                         (pos/->vec 12 0 -10)))))
- (it "when the base and end effector aren't the same length"
+ (it "when the end effector is longer than the base, the math still works"
      (should (within? angle-tolerance 0
                       (delta/inverse-3d (assoc test-descriptor :effector (+ effector 2))
                                         (pos/->vec 8 0 -10))))))

@@ -10,6 +10,7 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Canvas/Drawing environment utilities
+
 (defn get-canvas [] (sel1 :#target))
 
 (defn get-body [] (sel1 :body))
