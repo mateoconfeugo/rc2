@@ -1,6 +1,5 @@
 (ns rc2.lib.driver.pololu
-  (:use [rc2.lib.driver.serial-util :only [write-array write-vals encode-array close-interface]]
-        clojure.tools.trace)
+  (:use [rc2.lib.driver.serial-util :only [write-array write-vals encode-array close-interface]])
   (:require [rc2.lib.robot :as robot]
             [gloss.core :as gloss]))
 
@@ -100,9 +99,9 @@
   desired velocity, in rad/s."
   (set-properties! interface
                    (into {} (for [[servo velocity] velocities]
-                              [servo (trace 'duty-cycle-velocity (->duty-cycle-velocity
-                                             velocity
-                                             (get (:calibrations interface) servo)))]))
+                              [servo (->duty-cycle-velocity
+                                      velocity
+                                      (get (:calibrations interface) servo))]))
                    ->velocity-command))
 
 (defn set-accelerations! [interface accelerations]
