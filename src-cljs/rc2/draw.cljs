@@ -140,7 +140,9 @@
         primary-text (cond
                       (= :insert primary) "INSERT"
                       (= :delete primary) "DELETE"
-                      (= :edit primary) "EDIT")
+                      (= :edit primary) "EDIT"
+                      (= :run primary) "EXECUTE"
+                      :else (str primary))
         secondary-text (cond
                         (= :source secondary) "SOURCE "
                         (= :sink secondary) "SINK "

@@ -16,13 +16,15 @@
                          \E :edit}
                 :edit {\newline :insert
                        \return :insert
-                       \formfeed :insert}})
+                       \formfeed :insert}
+                :run {\space :insert}})
 
 ;; Keybindings for changing secondary mode.
 (def sub-mode-keys {:delete {:default nil}
                     :insert {\P :source
                              \S :sink
-                             :default :sink}})
+                             :default :sink}
+                    :run {:default nil}})
 
 (def default-animation-state {:index 0
                               :offsets (util/->world 0 0)})
@@ -49,10 +51,12 @@
                          :xform (fn [waypoints]
                                   (plan-route! waypoints)
                                   waypoints)}
-                        {:text "Start" :target [:running] :hover false :click false
-                         :xform (constantly true)}
-                        {:text "Stop" :target [:running] :hover false :click false
-                         :xform (constantly false)}
+                        {:text "Start" :target [:mode] :hover false :click false
+                         :xform (constantly {:primary :run :secondary nil})}
+                        {:text "Stop" :target [:mode] :hover false :click false
+                         :xform (fn [mode] (if (= :run (:primary mode))
+                                             {:primary :insert :secondary :sink}
+                                             mode))}
                         {:text "Clear" :target [:route] :hover false :click false
                          :xform (fn [route] (assoc route :waypoints [] :plan []))}]}
          :mode {:primary  :insert
@@ -191,9 +195,10 @@
         current-secondary (:secondary mode)
         mode-map (get sub-mode-keys primary-mode)
         key (first (filter (fn [k] (contains? (set (keys mode-map)) k)) pressed-keys))]
-    (assoc mode :secondary (if-let [next-mode (get mode-map key)]
-                             next-mode
-                             (or current-secondary (get mode-map :default))))))
+    (assoc mode :secondary
+           (if-let [next-mode (get mode-map key)]
+             next-mode
+             (or current-secondary (get mode-map :default))))))
 
 (defn handle-edit-mode-keys [keys state]
   "Handle keypresses in edit mode."
