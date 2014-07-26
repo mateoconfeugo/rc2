@@ -86,8 +86,10 @@
     (doseq [coord (map (fn [i] (util/->world (* 50 i) (* 50 i))) (range (- count) count))]
       (draw-crosshairs coord grid-color))))
 
+(defn indexed [seq] (map-indexed vector seq))
+
 (defn index-of [elt seq]
-  (first (first (filter #(= elt (second %)) (map-indexed vector seq)))))
+  (first (first (filter #(= elt (second %)) (indexed seq)))))
 
 (defn button-render-details [buttons button]
   (let [section-width (* (count buttons) (+ button-size 10))
@@ -189,16 +191,16 @@ all of the items, items from the end of the list will be preferred." ;; Scrollin
       (draw-text context (util/->canvas x (+ y offset)) (str (xform item))
                  (if (:highlight item) highlight-color default-color)))))
 
-(defn get-waypoint-text [parts wp]
+(defn get-waypoint-text [parts current [idx wp]]
   (let [kind (if (= :source (:kind wp)) "SOURCE " "SINK   ")
         coord (util/pp-coord (:location wp))
         part (:name (get parts (:part-id wp)))]
-   (str kind coord " -> " part)))
+   (str (if (not (= current idx)) "   " "-> ") kind coord ": " part)))
 
-(defn draw-waypoints [waypoints parts]
+(defn draw-waypoints [waypoints parts current]
   (draw-section :title "WAYPOINTS" :coord (util/->canvas 30 30)
-                :items waypoints
-                :xform (partial get-waypoint-text parts))
+                :items (indexed waypoints)
+                :xform (partial get-waypoint-text parts current))
   (let [context (util/get-context)]
     (doseq [wp waypoints]
       (let [loc (:location wp)
@@ -226,11 +228,15 @@ all of the items, items from the end of the list will be preferred." ;; Scrollin
           context (util/get-context)]
       (draw-circle context loc animation-radius default-color))))
 
-(defn draw-plan [plan parts]
+(defn draw-actuator-position [position]
+  (let [context (util/get-context)]
+    (draw-circle context position animation-radius default-color)))
+
+(defn draw-plan [plan parts current]
   (draw-section :title "PLAN"
                 :coord (util/->canvas (- (.-width (util/get-canvas)) 250 80) 30)
-                :items plan
-                :xform (partial get-waypoint-text parts)))
+                :items (indexed plan)
+                :xform (partial get-waypoint-text parts current)))
 
 (defn draw-part-list [parts]
   (draw-section :title "PARTS"
@@ -250,7 +256,13 @@ all of the items, items from the end of the list will be preferred." ;; Scrollin
   (draw-mode-info (get state :mode))
   (draw-state-info state)
   (draw-plan-segments (get-in state [:route :plan]))
-  (draw-plan (get-in state [:route :plan]) (get state :parts))
-  (draw-waypoints (get-in state [:route :waypoints]) (get state :parts))
-  (draw-plan-animation (get-in state [:route :plan]) (get-in state [:route :animation]))
+  (draw-plan (get-in state [:route :plan])
+             (get state :parts)
+             (get-in state [:route :execution :current]))
+  (draw-waypoints (get-in state [:route :waypoints])
+                  (get state :parts)
+                  (get-in state [:route :execution :current]))
+  (if (not (= :run (get-in state [:mode :primary])))
+    (draw-plan-animation (get-in state [:route :plan]) (get-in state [:route :animation]))
+    (draw-actuator-position (get-in state [:robot :position])))
   (draw-part-list (get state :parts)))

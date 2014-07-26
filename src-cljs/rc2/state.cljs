@@ -37,7 +37,8 @@
                     :previous-pressed #{}}
          :route {:waypoints []
                  :plan []
-                 :animation default-animation-state}
+                 :animation default-animation-state
+                 :execution {:current 0}}
          :parts {0 {:name "DEFAULT" :highlight true}}
          :ui {
               ;; Buttons have a name (rendered on the screen), a target vector, and a
@@ -53,16 +54,15 @@
                         {:text "Stop" :target [:running] :hover false :click false
                          :xform (constantly false)}
                         {:text "Clear" :target [:route] :hover false :click false
-                         :xform (constantly {:waypoints [] :plan []})}]
-              }
+                         :xform (fn [route] (assoc route :waypoints [] :plan []))}]}
          :mode {:primary  :insert
                 :secondary :sink}
+         :robot {:position (util/->world 0 0)}
          :tasks {:pending []
                  :complete []
                  :last-poll 0}
          :connection {:last-heartbeat 0 :connected false}
          :time 0
-         :running false
          }))
 
 ;;;;;;;;;;
@@ -109,19 +109,26 @@
 (defn get-selected-part-id [parts]
   (first (first (filter (fn [[k v]] (highlighted? v)) parts))))
 
-(defn handle-new-waypoints [state waypoints]
+(defn handle-waypoint-updates [state route]
   (let [mouse (:mouse state)
-        buttons (get-in state [:ui :buttons])]
+        buttons (get-in state [:ui :buttons])
+        waypoints (:waypoints state)]
     (if (and (not (some #(:hover %) buttons))
              (clicked? mouse 0))
-      (if (and (= :insert (get-in state [:mode :primary]))
-               (get-selected-part-id (:parts state)))
-        (conj waypoints {:location (:location mouse)
-                         :highlight true
-                         :kind (get-in state [:mode :secondary])
-                         :part-id (get-selected-part-id (:parts state))})
-        (filter #(not (:highlight %)) waypoints))
-      waypoints)))
+      (cond
+       (and (= :insert (get-in state [:mode :primary]))
+            (get-selected-part-id (:parts state)))
+       (update-in route [:waypoints]
+                  conj {:location (:location mouse)
+                        :highlight true
+                        :kind (get-in state [:mode :secondary])
+                        :part-id (get-selected-part-id (:parts state))})
+       (= :delete (get-in state [:mode :primary]))
+       (-> route
+           (update-in [:waypoints] (fn [wps] (filter #(not (:highlight %)) wps)))
+           (assoc :plan []))
+       :else route)
+      route)))
 
 (defn highlight-waypoints [mouse waypoints]
   (let [mouse (util/canvas->world mouse)]
@@ -254,7 +261,7 @@
    [[:mouse :location] [:ui :buttons] update-button-hover]
    [[:mouse] [:ui :buttons] update-button-click]
    [[:ui :buttons] [] handle-button-actions]
-   [[] [:route :waypoints] handle-new-waypoints]
+   [[] [:route] handle-waypoint-updates]
    [[:mouse :location] [:route :waypoints] highlight-waypoints]
    [[:route :waypoints] [:route :plan] update-plan-annotations]
    [[:route :plan] [:route :animation] update-plan-animation]
@@ -327,9 +334,9 @@
     (cond
      (= "plan" type) (-> app-state
                          (assoc-in [:route :plan]
-                                   (annotate-plan (get-in app-state [:route :waypoints])
-                                                  result))
-                         (assoc-in [:route :animation] default-animation-state))
+                                   (annotate-plan (get-in app-state [:route :waypoints]) result))
+                         (assoc-in [:route :animation] default-animation-state)
+                         (assoc-in [:route :execution :current] 0))
      :else app-state)))
 
 (defn update-task-state [app-state task]
