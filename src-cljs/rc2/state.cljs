@@ -17,14 +17,14 @@
                 :edit {\newline :insert
                        \return :insert
                        \formfeed :insert}
-                :run {\space :insert}})
+                :execute {\space :insert}})
 
 ;; Keybindings for changing secondary mode.
 (def sub-mode-keys {:delete {:default nil}
                     :insert {\P :source
                              \S :sink
                              :default :sink}
-                    :run {:default nil}})
+                    :execute {:default nil}})
 
 (def default-animation-state {:index 0
                               :offsets (util/->world 0 0)})
@@ -52,9 +52,9 @@
                                   (plan-route! waypoints)
                                   waypoints)}
                         {:text "Start" :target [:mode] :hover false :click false
-                         :xform (constantly {:primary :run :secondary nil})}
+                         :xform (constantly {:primary :execute :secondary nil})}
                         {:text "Stop" :target [:mode] :hover false :click false
-                         :xform (fn [mode] (if (= :run (:primary mode))
+                         :xform (fn [mode] (if (= :execute (:primary mode))
                                              {:primary :insert :secondary :sink}
                                              mode))}
                         {:text "Clear" :target [:route] :hover false :click false

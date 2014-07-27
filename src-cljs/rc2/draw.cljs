@@ -141,7 +141,7 @@
                       (= :insert primary) "INSERT"
                       (= :delete primary) "DELETE"
                       (= :edit primary) "EDIT"
-                      (= :run primary) "EXECUTE"
+                      (= :execute primary) "EXECUTE"
                       :else (str primary))
         secondary-text (cond
                         (= :source secondary) "SOURCE "
@@ -264,7 +264,7 @@ all of the items, items from the end of the list will be preferred." ;; Scrollin
   (draw-waypoints (get-in state [:route :waypoints])
                   (get state :parts)
                   (get-in state [:route :execution :current]))
-  (if (not (= :run (get-in state [:mode :primary])))
+  (if (not (= :execute (get-in state [:mode :primary])))
     (draw-plan-animation (get-in state [:route :plan]) (get-in state [:route :animation]))
     (draw-actuator-position (get-in state [:robot :position])))
   (draw-part-list (get state :parts)))
