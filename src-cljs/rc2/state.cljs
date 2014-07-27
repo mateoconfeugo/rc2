@@ -77,12 +77,6 @@
 ;; (last-frame) state of the input and output paths and the returned value is stored in the output
 ;; path.
 
-(defn merge-maps [result latter]
-  "Merge two maps into one, preserving overall structure."
-  (if (and (map? result) (map? latter))
-    (merge-with merge-maps result latter)
-    latter))
-
 (defn apply-state-transforms [state transforms]
   "Apply a series of transforms of the form [in-path out-path transform] to a state map and return
   the updated map."
