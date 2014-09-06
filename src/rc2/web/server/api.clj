@@ -53,6 +53,11 @@
                  :exists? (fn [_] (let [event (task/get-event (Integer. id))]
                                     (if event {::event event})))
                  :handle-ok ::event))
+  (ANY "/api/v1/status" []
+       (resource :available-media-types ["application/json"]
+                 :allowed-methods [:get]
+                 ;; TODO Wire this up to actual position data
+                 :handle-ok (fn [ctx] {:position {:x 0 :y 0 :z 0}})))
   (ANY "/meta" []
        (resource :available-media-types ["application/json"]
                  :allowed-methods [:get]

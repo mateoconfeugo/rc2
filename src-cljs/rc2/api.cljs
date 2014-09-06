@@ -30,6 +30,11 @@
                                   :error-handler (comp error keywordize)
                                   :format :json}))
 
+(defn get-status [success error]
+  (GET "/api/v1/status" {:handler (comp success keywordize)
+                :error-handler (comp error keywordize)
+                :format :json}))
+
 (defn get-meta [success error]
   (GET "/meta" {:handler (comp success keywordize)
                 :error-handler (comp error keywordize)

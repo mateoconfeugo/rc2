@@ -12,6 +12,7 @@
 (def heartbeat-interval (* 1000 3))
 (def heartbeat-timeout (* heartbeat-interval 3))
 (def task-update-interval 500) ;; Check for task state changes every 500ms.
+(def position-update-interval 500) ;; Check for position state changes every 500ms.
 
 ;; Keybindings for moving between primary modes.
 (def mode-keys {:delete {\I :insert}
@@ -107,7 +108,8 @@
                                 :visible true}}}
          :mode {:primary  :insert
                 :secondary :sink}
-         :robot {:position (util/->world 0 0)}
+         :robot {:position (util/->world 0 0)
+                 :last-poll 0}
          :tasks {:pending []
                  :complete []
                  :last-poll 0}
@@ -454,34 +456,42 @@
   route
   )
 
-(defn check-heartbeat! []
-  (let [now (current-time)
-        latest (get-in @app-state [:connection :last-heartbeat])
-        time-since-heartbeat (- now latest)]
-    (when (< heartbeat-interval time-since-heartbeat)
-      (api/get-meta (fn [_]
-                      (swap! app-state assoc :connection {:last-heartbeat (current-time)
-                                                          :connected true}))
-                    (fn [_]
-                      (swap! app-state update-in [:connection :connected] (constantly false)))))
-    (when (< heartbeat-timeout time-since-heartbeat)
-      (swap! app-state update-in [:connection :connected] (constantly false)))))
+(defn check-heartbeat! [elapsed]
+  (api/get-meta (fn [_] (swap! app-state assoc-in [:connection :connected] true))
+                (fn [_] (swap! app-state assoc-in [:connection :connected] false)))
+  (when (< heartbeat-timeout elapsed) (swap! app-state assoc-in [:connection :connected] false)))
 
-(defn check-tasks! []
+(defn check-tasks! [_]
+  (doseq [id (map :id (get-in @app-state [:tasks :pending]))]
+    (api/get-task
+     id
+     (fn [resp]
+       (swap! app-state update-task-state resp))
+     (fn [err]
+       (.log js/console "Error when checking on task state: " (str err))
+       (swap! app-state update-in [:tasks :pending]
+              #(filterv (fn [t] (not= id (:id t))) %))))))
+
+(defn check-position! [_]
+  (api/get-status
+   (fn [resp]
+     (let [position (util/->world (vals (:position resp)))]
+       (.log js/console "Robot position:" (str position))
+       (swap! app-state assoc-in [:robot :position] position)))
+   (fn [err] (.log js/console "Error when fetching position info: " (str err)))))
+
+(defn do-periodically [period last-path f]
   (let [now (current-time)
-        latest (get-in @app-state [:tasks :last-poll])
-        time-since-poll (- now latest)]
-    (when (< task-update-interval time-since-poll)
-      (doseq [id (map :id (get-in @app-state [:tasks :pending]))]
-        (api/get-task
-         id
-         (fn [resp]
-           (swap! app-state update-task-state resp))
-         (fn [err]
-           (.log js/console "Error when checking on task state: " (str err))
-           (swap! app-state update-in [:tasks :pending]
-                  #(filterv (fn [t] (not= id (:id t))) %)))))
-      (swap! app-state update-in [:tasks :last-poll] (constantly now)))))
+        last (get-in @app-state last-path)
+        elapsed (- now last)]
+    (when (< period elapsed)
+      (f elapsed)
+      (swap! app-state update-in last-path (constantly now)))))
+
+(defn update-periodic-tasks! []
+  (do-periodically heartbeat-interval [:connection :last-heartbeat] check-heartbeat!)
+  (do-periodically task-update-interval [:tasks :last-poll] check-tasks!)
+  (do-periodically position-update-interval [:robot :last-poll] check-position!))
 
 (defn attach-handlers []
   (set! (.-onmousemove (util/get-canvas)) on-mouse-move!)
