@@ -17,14 +17,17 @@
                 :edit {\newline :insert
                        \return :insert
                        \formfeed :insert}
-                :execute {\space :insert}})
+                :execute {\backspace :insert}})
 
 ;; Keybindings for changing secondary mode.
 (def sub-mode-keys {:delete {:default nil}
                     :insert {\P :source
                              \S :sink
                              :default :sink}
-                    :execute {:default nil}})
+                    :execute {:default :pause
+                              \newline :run
+                              \return :run
+                              \formfeed :run}})
 
 (def default-animation-state {:index 0
                               :offsets (util/->world 0 0)})
@@ -47,18 +50,48 @@
               ;; transform function. When the button is clicked the transform function
               ;; is called with the value in this state tree at the 'target' path,
               ;; which is then replaced with the returned value.
-              :buttons [{:text "Plan" :target [:route :waypoints] :hover false :click false
-                         :xform (fn [waypoints]
-                                  (plan-route! waypoints)
-                                  waypoints)}
-                        {:text "Start" :target [:mode] :hover false :click false
-                         :xform (constantly {:primary :execute :secondary nil})}
-                        {:text "Stop" :target [:mode] :hover false :click false
-                         :xform (fn [mode] (if (= :execute (:primary mode))
-                                             {:primary :insert :secondary :sink}
-                                             mode))}
-                        {:text "Clear" :target [:route] :hover false :click false
-                         :xform (fn [route] (assoc route :waypoints [] :plan []))}]}
+              :buttons {:plan {:text "Plan"
+                               :target [:route :waypoints]
+                               :hover false
+                               :click false
+                               :xform (fn [waypoints]
+                                        (plan-route! waypoints)
+                                        waypoints)
+                               :visible true}
+                        :start {:text "Start"
+                                :target []
+                                :hover false
+                                :click false
+                                :xform (fn [state]
+                                         (-> state
+                                             (assoc-in [:mode] {:primary :execute :secondary :run})
+                                             (assoc-in [:ui :buttons :start :visible] false)
+                                             (assoc-in [:ui :buttons :pause :visible] true)))
+                                :visible true}
+                        :pause {:text "Pause"
+                                :target []
+                                :hover false
+                                :click false
+                                :xform
+                                (fn [state]
+                                  (-> state
+                                      (assoc-in [:mode] {:primary :execute :secondary :pause})
+                                      (assoc-in [:ui :buttons :start :visible] true)
+                                      (assoc-in [:ui :buttons :pause :visible] false)))
+                                :visible false}
+                        :stop {:text "Stop"
+                               :target [:mode]
+                               :hover false
+                               :click false
+                               :xform (fn [mode] (if (= :execute (:primary mode))
+                                                   {:primary :insert :secondary :sink}
+                                                   mode)) :visible true}
+                        :clear {:text "Clear"
+                                :target [:route]
+                                :hover false
+                                :click false
+                                :xform (fn [route] (assoc route :waypoints [] :plan []))
+                                :visible true}}}
          :mode {:primary  :insert
                 :secondary :sink}
          :robot {:position (util/->world 0 0)}
@@ -109,9 +142,11 @@
 
 (defn handle-waypoint-updates [state route]
   (let [mouse (:mouse state)
-        buttons (get-in state [:ui :buttons])
+        buttons (vals (get-in state [:ui :buttons]))
         waypoints (:waypoints state)]
-    (if (and (not (some #(:hover %) buttons))
+    (.log js/console "Buttons:" buttons)
+    (.log js/console "Buttons hovering?" (some :hover buttons))
+    (if (and (not (some :hover buttons))
              (clicked? mouse 0))
       (cond
        (and (= :insert (get-in state [:mode :primary]))
@@ -139,19 +174,28 @@
   (let [{:keys [coord width height]} (draw/button-render-details btns btn)
         {bx :x by :y} (util/canvas->world coord)
         {:keys [x y]} (util/canvas->world pos)]
-    (and (< bx x (+ bx width))
-         (< (- by height) y by))))
+    (if (:visible btn)
+        (and (< bx x (+ bx width))
+             (< (- by height) y by))
+        false)))
 
 (defn update-button-hover [mouse-pos buttons]
-  (mapv (fn [btn] (assoc btn :hover (in-button? buttons btn mouse-pos))) buttons))
+  (into {} (map (fn [[k btn]] [k (assoc btn :hover
+                                        (in-button? (vals buttons) btn mouse-pos))])
+                buttons)))
 
 (defn update-button-click [mouse buttons]
   "Update the clicked state of UI buttons."
-  (mapv (fn [btn] (assoc btn :click (and (clicked? mouse 0) (:hover btn)))) buttons))
+  (into {} (map (fn [[k btn]]
+                  (when (and (clicked? mouse 0) (:hover btn))
+                      (.log js/console (:text btn) "clicked"))
+                  [k (assoc btn :click (and (clicked? mouse 0) (:hover btn)))])
+                buttons)))
 
 (defn handle-button-actions [buttons state]
   "Perform the on-click actions of the clicked UI buttons."
-  (let [transforms (filterv
+  (let [buttons (vals buttons)
+        transforms (filterv
                     (comp not nil?)
                     (mapv (fn [btn] [(:target btn) (:target btn) (:xform btn)])
                           (filterv #(:click %) buttons)))]

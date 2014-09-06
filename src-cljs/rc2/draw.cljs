@@ -92,13 +92,14 @@
   (first (first (filter #(= elt (second %)) (indexed seq)))))
 
 (defn button-render-details [buttons button]
-  (let [section-width (* (count buttons) (+ button-size 10))
+  (let [buttons (filter :visible buttons)
+        section-width (* (count buttons) (+ button-size 10))
         index (index-of button buttons)
         offset (util/->world (- (+ (* (+ button-size 10) index) 5) (/ section-width 2)) 50)]
     {:coord (util/coord+ offset (util/world-edge :bottom)) :width button-size :height 20}))
 
 (defn draw-buttons [buttons]
-  (doseq [button buttons]
+  (doseq [button (filter :visible buttons)]
     (let [{:keys [coord width height]} (button-render-details buttons button)
           context (util/get-context)
           color (if (:hover button)
@@ -109,7 +110,7 @@
 
 (defn draw-ui-elements [elts]
   (let [{:keys [buttons]} elts]
-    (draw-buttons buttons)))
+    (draw-buttons (vals buttons))))
 
 (defn mode-color [mode]
   (condp = (:primary mode)
@@ -146,6 +147,8 @@
         secondary-text (cond
                         (= :source secondary) "SOURCE "
                         (= :sink secondary) "SINK "
+                        (= :run secondary) "RUNNING "
+                        (= :pause secondary) "PAUSED "
                         :else "")
         text (str secondary-text primary-text " MODE")
         x-off (- (/ (:width (text-size text :size 14)) 2))
