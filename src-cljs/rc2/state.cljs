@@ -382,8 +382,8 @@
 
 (defn on-task-completion [app-state task]
   "Handle task completion events."
-  (let [type (get task "type")
-        result (get task "result")]
+  (let [type (:type task)
+        result (:result task)]
     (.log js/console type " task complete")
     (cond
      (= "plan" type) (-> app-state
@@ -396,12 +396,12 @@
      :else app-state)))
 
 (defn update-task-state [app-state task]
-  (let [state (get task "state")
-        id (get task "id")]
+  (let [state (:state task)
+        id (:id task)]
     (if (= "complete" state)
       (-> app-state
           (on-task-completion task)
-          (update-in [:tasks :pending] (fn [tasks] (filterv (fn [t] (not (= id (get t "id")))) tasks)))
+          (update-in [:tasks :pending] (fn [tasks] (filterv (fn [t] (not (= id (:id t)))) tasks)))
           (update-in [:tasks :complete] (fn [tasks] (conj tasks task))))
       app-state)))
 
@@ -410,8 +410,8 @@
   (api/add-task!
    task
    (fn [resp]
-     (.log js/console "Started task " (str resp) "id:" (get resp "id"))
-     (if (= "complete" (get resp "state"))
+     (.log js/console "Started task " (str resp) "id:" (:id resp))
+     (if (= "complete" (:state resp))
        (swap! app-state update-task-state resp)
        (swap! app-state update-in [:tasks :pending] #(conj % resp))))
    (fn [resp] (.log js/console "Failed to add task " (str task)))))
@@ -472,7 +472,7 @@
         latest (get-in @app-state [:tasks :last-poll])
         time-since-poll (- now latest)]
     (when (< task-update-interval time-since-poll)
-      (doseq [id (map #(get % "id") (get-in @app-state [:tasks :pending]))]
+      (doseq [id (map :id (get-in @app-state [:tasks :pending]))]
         (api/get-task
          id
          (fn [resp]
@@ -480,7 +480,7 @@
          (fn [err]
            (.log js/console "Error when checking on task state: " (str err))
            (swap! app-state update-in [:tasks :pending]
-                  #(filterv (fn [t] (not= id (get t "id"))) %)))))
+                  #(filterv (fn [t] (not= id (:id t))) %)))))
       (swap! app-state update-in [:tasks :last-poll] (constantly now)))))
 
 (defn attach-handlers []
