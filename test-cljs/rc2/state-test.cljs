@@ -34,9 +34,9 @@
  (it "does nothing if the task is not complete"
      (let [app-state {:tasks {:pending [1] :complete []}}]
        (should= app-state (state/update-task-state app-state {"state" "processing", "id" 1}))))
- (it "moves the task ID to the complete list if the task is complete"
-     (let [app-state {:tasks {:pending [1] :complete []}}]
-       (should= {:tasks {:pending [] :complete [1]}}
+ (it "moves the task to the complete list if the task is complete"
+     (let [app-state {:tasks {:pending [{"id" 1}] :complete []}}]
+       (should= {:tasks {:pending [] :complete [{"state" "complete" "id" 1}]}}
                 (state/update-task-state app-state {"state" "complete", "id" 1})))))
 
 (describe

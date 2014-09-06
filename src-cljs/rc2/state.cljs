@@ -5,6 +5,9 @@
             [clojure.set :as set]))
 
 (declare plan-route!)
+(declare resume-execution!)
+(declare pause-execution!)
+(declare stop-execution!)
 
 (def heartbeat-interval (* 1000 3))
 (def heartbeat-timeout (* heartbeat-interval 3))
@@ -43,7 +46,8 @@
          :route {:waypoints []
                  :plan []
                  :animation default-animation-state
-                 :execution {:current 0}}
+                 :execution {:current 0
+                             :plan []}}
          :parts {0 {:name "DEFAULT" :highlight true}}
          :ui {
               ;; Buttons have a name (rendered on the screen), a target vector, and a
@@ -62,11 +66,13 @@
                                 :target []
                                 :hover false
                                 :click false
-                                :xform (fn [state]
-                                         (-> state
-                                             (assoc-in [:mode] {:primary :execute :secondary :run})
-                                             (assoc-in [:ui :buttons :start :visible] false)
-                                             (assoc-in [:ui :buttons :pause :visible] true)))
+                                :xform
+                                (fn [state]
+                                  (-> state
+                                      (assoc-in [:mode] {:primary :execute :secondary :run})
+                                      (assoc-in [:ui :buttons :start :visible] false)
+                                      (assoc-in [:ui :buttons :pause :visible] true)
+                                      (update-in [:route] resume-execution!)))
                                 :visible true}
                         :pause {:text "Pause"
                                 :target []
@@ -77,15 +83,22 @@
                                   (-> state
                                       (assoc-in [:mode] {:primary :execute :secondary :pause})
                                       (assoc-in [:ui :buttons :start :visible] true)
-                                      (assoc-in [:ui :buttons :pause :visible] false)))
+                                      (assoc-in [:ui :buttons :pause :visible] false)
+                                      (update-in [:route] pause-execution!)))
                                 :visible false}
                         :stop {:text "Stop"
-                               :target [:mode]
+                               :target []
                                :hover false
                                :click false
-                               :xform (fn [mode] (if (= :execute (:primary mode))
-                                                   {:primary :insert :secondary :sink}
-                                                   mode)) :visible true}
+                               :xform
+                               (fn [state]
+                                 (let [mode (:mode state)]
+                                   (if (= :execute (:primary mode))
+                                     (-> state
+                                       (update-in [:route] stop-execution!)
+                                       (assoc-in [:mode] {:primary :insert :secondary :sink}))
+                                     state)))
+                               :visible true}
                         :clear {:text "Clear"
                                 :target [:route]
                                 :hover false
@@ -144,8 +157,6 @@
   (let [mouse (:mouse state)
         buttons (vals (get-in state [:ui :buttons]))
         waypoints (:waypoints state)]
-    (.log js/console "Buttons:" buttons)
-    (.log js/console "Buttons hovering?" (some :hover buttons))
     (if (and (not (some :hover buttons))
              (clicked? mouse 0))
       (cond
@@ -380,6 +391,8 @@
                                    (annotate-plan (get-in app-state [:route :waypoints]) result))
                          (assoc-in [:route :animation] default-animation-state)
                          (assoc-in [:route :execution :current] 0))
+     (= "move" type) (-> app-state
+                         (update-in [:route] resume-execution!))
      :else app-state)))
 
 (defn update-task-state [app-state task]
@@ -388,19 +401,20 @@
     (if (= "complete" state)
       (-> app-state
           (on-task-completion task)
-          (update-in [:tasks :pending] (fn [ids] (filterv (fn [x] (not (= id x))) ids)))
-          (update-in [:tasks :complete] (fn [ids] (conj ids id))))
+          (update-in [:tasks :pending] (fn [tasks] (filterv (fn [t] (not (= id (get t "id")))) tasks)))
+          (update-in [:tasks :complete] (fn [tasks] (conj tasks task))))
       app-state)))
 
 (defn start-task! [task]
   "Send a task to the server and add its ID to the pending task list."
-  (api/add-task! task
-                 (fn [resp]
-                   (.log js/console "Started task " (str resp) "id:" (get resp "id"))
-                   (if (= "complete" (get resp "state"))
-                     (swap! app-state update-task-state resp)
-                     (swap! app-state update-in [:tasks :pending] #(conj % (get resp "id")))))
-                 (fn [resp] (.log js/console "Failed to add task " (str task)))))
+  (api/add-task!
+   task
+   (fn [resp]
+     (.log js/console "Started task " (str resp) "id:" (get resp "id"))
+     (if (= "complete" (get resp "state"))
+       (swap! app-state update-task-state resp)
+       (swap! app-state update-in [:tasks :pending] #(conj % resp))))
+   (fn [resp] (.log js/console "Failed to add task " (str task)))))
 
 (defn clean-waypoint [waypoint]
   (let [{:keys [location kind part-id]} waypoint
@@ -410,6 +424,35 @@
 (defn plan-route! [waypoints]
   "Send a request to the server to plan a route using the current waypoints."
   (start-task! {:type :plan :waypoints (mapv clean-waypoint waypoints)}))
+
+(defn resume-execution! [route]
+  (let [exec-state (:execution route)
+        plan (:plan route)
+        current (if (= (:plan route) (:plan exec-state))
+                  (:current exec-state) 0)
+        next-step (if (< current (count plan)) (nth plan current) nil)]
+    (.log js/console "Plan:" (str plan))
+    (.log js/console "Next step:" (str next-step))
+    (if next-step
+      (do
+        (start-task! {:type :move :waypoint (clean-waypoint next-step)})
+        (-> route
+            (assoc-in [:execution :current] (+ 1 current))
+            (assoc-in [:execution :plan] plan)))
+      (do
+        (.log js/console "Path execution complete.")
+        route))
+    ))
+
+(defn pause-execution! [route]
+  ;; TODO Pause the task on the server that's currently executing
+  route
+  )
+
+(defn stop-execution! [route]
+  ;; TODO Stop the task on the server that's currently executing
+  route
+  )
 
 (defn check-heartbeat! []
   (let [now (current-time)
@@ -429,14 +472,15 @@
         latest (get-in @app-state [:tasks :last-poll])
         time-since-poll (- now latest)]
     (when (< task-update-interval time-since-poll)
-      (doseq [id (get-in @app-state [:tasks :pending])]
+      (doseq [id (map #(get % "id") (get-in @app-state [:tasks :pending]))]
         (api/get-task
          id
          (fn [resp]
            (swap! app-state update-task-state resp))
          (fn [err]
            (.log js/console "Error when checking on task state: " (str err))
-           (swap! app-state update-in [:tasks :pending] #(filterv (fn [t] (not= id t)) %)))))
+           (swap! app-state update-in [:tasks :pending]
+                  #(filterv (fn [t] (not= id (get t "id"))) %)))))
       (swap! app-state update-in [:tasks :last-poll] (constantly now)))))
 
 (defn attach-handlers []

@@ -5,6 +5,7 @@
 ;; TODO Flesh out handlers
 
 (defn- handle-move-task [task]
+  (Thread/sleep 3000)
   true)
 
 (defn- waypoint->source [{:keys [part-id x y z] :or {:z 0}}]
