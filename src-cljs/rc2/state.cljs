@@ -148,7 +148,6 @@
                                 :xform
                                 (fn [state]
                                   (-> state
-                                      (#(enter execute-mode %))
                                       (#(enter pause-mode %))
                                       (update-in [:route] pause-execution!)))
                                 :visible-when (fn [state]
@@ -446,40 +445,62 @@
         result (:result task)
         primary (get-in state [:mode :primary])
         secondary (get-in state [:mode :secondary])]
-    (.log js/console type " task complete")
+    (.log js/console type "task" (:id task) "complete")
     (cond
      (= "plan" type) (-> state
                          (assoc-in [:route :plan]
                                    (annotate-plan (get-in state [:route :waypoints]) result))
                          (assoc-in [:route :animation] default-animation-state)
                          (assoc-in [:route :execution :current] 0))
-     (and (= "move" type)
-          (= execute-mode primary)
-          (= run-mode secondary)) (update-in state [:route] resume-execution!)
+     (= "move" type) (-> state
+                         (assoc-in [:route :execution :task-id] nil)
+                         (#(when (and (= execute-mode primary) (= run-mode secondary))
+                             ;; TODO Switch out of execute mode when tasks are complete
+                             (update-in % [:route] resume-execution!))))
      :else state)))
 
-(defn update-task-state [app-state task]
-  (let [state (:state task)
+(defn move-to-complete [state task]
+  "Move a task's ID from the pending list to the completed list in the given state."
+  (-> state
+      (update-in [:tasks :pending]
+                 (fn [tasks] (filterv (fn [t] (not (= (:id task) (:id t)))) tasks)))
+      (update-in [:tasks :complete] (fn [tasks] (conj tasks task)))))
+
+(defn update-task-state [state task]
+  "Update a task's status in the current state."
+  (let [task-state (:state task)
         id (:id task)]
-    (if (= "complete" state)
-      (-> app-state
-          (on-task-completion task)
-          (update-in [:tasks :pending] (fn [tasks] (filterv (fn [t] (not (= id (:id t)))) tasks)))
-          (update-in [:tasks :complete] (fn [tasks] (conj tasks task))))
-      app-state)))
+    (cond
+     (= "complete" task-state) (-> state
+                                   (on-task-completion task)
+                                   (move-to-complete task))
+     (= "cancelled" task-state) (move-to-complete state task)
+     :else state)))
 
 (defn start-task! [task & {:keys [error success] :or {error nil success nil}}]
   "Send a task to the server and add its ID to the pending task list."
   (api/add-task!
    task
    (fn [resp]
-     (.log js/console "Started task " (str resp) "id:" (:id resp))
+     (.log js/console "Started task" (str resp))
      (when success (success resp))
      (if (= "complete" (:state resp))
        (swap! app-state update-task-state resp)
        (swap! app-state update-in [:tasks :pending] #(conj % resp))))
    (fn [resp]
      (.log js/console "Failed to add task " (str task))
+     (when error (error resp)))))
+
+(defn stop-task! [task-id & {:keys [error success] :or {error nil success nil}}]
+  "Stop execution of an existing task and add its ID to the completed task list."
+  (api/cancel-task!
+   task-id
+   (fn [resp]
+     (.log js/console "Canceled task" (str resp))
+     (when success (success resp))
+     (swap! app-state update-task-state resp))
+   (fn [resp]
+     (.log js/console "Failed to stop task" (str resp))
      (when error (error resp)))))
 
 (defn clean-waypoint [waypoint]
@@ -492,13 +513,13 @@
   (start-task! {:type :plan :waypoints (mapv clean-waypoint waypoints)}))
 
 (defn resume-execution! [route]
+  ;; TODO Retry the previous task if it was cancelled by pause
   (let [exec-state (:execution route)
         plan (:plan route)
+        ;; Start from the top if the plan has changed.
         current (if (= (:plan route) (:plan exec-state))
                   (:current exec-state) 0)
         next-step (if (< current (count plan)) (nth plan current) nil)]
-    (.log js/console "Plan:" (str plan))
-    (.log js/console "Next step:" (str next-step))
     (if next-step
       (do
         (start-task! {:type :move :waypoint (clean-waypoint next-step)}
@@ -513,14 +534,16 @@
         (assoc-in route [:execution :task-id] nil)))))
 
 (defn pause-execution! [route]
-  ;; TODO Pause the task on the server that's currently executing
-  route
-  )
+  "Pause the current path execution task on the server."
+  (let [task-id (get-in route [:execution :task-id])]
+    (when task-id (stop-task! task-id))
+    (start-task! {:type :pause})
+    (assoc-in route [:execution :task-id] nil)))
 
 (defn stop-execution! [route]
-  ;; TODO Stop the task on the server that's currently executing
-  route
-  )
+  (-> route
+      pause-execution!
+      (assoc-in [:execution :current] 0)))
 
 (defn check-heartbeat! [elapsed]
   (api/get-meta (fn [_] (swap! app-state assoc-in [:connection :connected] true))

@@ -20,8 +20,8 @@
         :error-handler (comp error keywordize)
         :format :json}))
 
-(defn cancel-task! [task success error]
-  (POST (str "/api/v1/tasks/" task "/cancel")
+(defn cancel-task! [task-id success error]
+  (POST (str "/api/v1/tasks/" task-id "/cancel")
         {:handler (comp success keywordize)
          :error-handler (comp error keywordize)
          :format :json}))

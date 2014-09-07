@@ -45,7 +45,10 @@
                  :exists? (fn [_] (let [task (task/get-task (Integer. id))]
                                     (if task {::task task})))
                  :handle-ok ::task
-                 :post! (fn [_] (task/cancel-task! (Integer. id)))))
+                 :post! (fn [ctx]
+                          (task/cancel-task! (Integer. id))
+                          {::id id})
+                 :post-redirect? (fn [ctx] {:location (format "/api/v1/tasks/%s" (::id ctx))})))
   (ANY "/api/v1/events" []
        (resource :available-media-types ["application/json"]
                  :allowed-methods [:get]

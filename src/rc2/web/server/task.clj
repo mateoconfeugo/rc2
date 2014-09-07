@@ -139,7 +139,7 @@
 
 (defn cancel-task! [id]
   "Cancel a task by ID."
-  (update-task! id :state :canceled))
+  (update-task! id :state :cancelled))
 
 (defn get-tasks []
   "Get the task registry."

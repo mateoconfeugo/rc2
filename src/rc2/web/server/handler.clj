@@ -8,6 +8,9 @@
   (Thread/sleep 3000)
   true)
 
+(defn- handle-pause-task [task]
+  true)
+
 (defn- waypoint->source [{:keys [part-id x y z] :or {:z 0}}]
   "Convert a waypoint into a source definition."
   [part-id [x y z]])
@@ -27,4 +30,5 @@
 (defn attach-handlers! []
   "Attach handlers for the tasks API."
   (task/register-task-type! :move handle-move-task)
+  (task/register-task-type! :pause handle-pause-task)
   (task/register-task-type! :plan handle-plan-task :affinity :parallel))
