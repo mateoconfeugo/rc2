@@ -85,25 +85,6 @@
                  :pause pause-mode)
          state))
 
-;; Keybindings for moving between primary modes.
-(def mode-keys {:delete {\I :insert}
-                :insert {\D :delete
-                         \E :edit}
-                :edit {\newline :insert
-                       \return :insert
-                       \formfeed :insert}
-                :execute {\backspace :insert}})
-
-;; Keybindings for changing secondary mode.
-(def sub-mode-keys {:delete {:default nil}
-                    :insert {\P :source
-                             \S :sink
-                             :default :sink}
-                    :execute {:default :pause
-                              \newline :run
-                              \return :run
-                              \formfeed :run}})
-
 (def default-animation-state {:index 0
                               :offsets (util/->world 0 0)})
 (def animation-step-distance 5)
@@ -315,24 +296,13 @@
         (#(reduce (fn [s k] (handle-keypress primary k s)) % pressed-keys))
         (#(reduce (fn [s k] (handle-keypress secondary k s)) % pressed-keys)))))
 
-(defn handle-secondary-mode-keys [pressed-keys mode]
-  "Set the secondary mode based on the current keys."
-  (let [primary-mode (:primary mode)
-        current-secondary (:secondary mode)
-        mode-map (get sub-mode-keys primary-mode)
-        key (first (filter (fn [k] (contains? (set (keys mode-map)) k)) pressed-keys))]
-    (assoc mode :secondary
-           (if-let [next-mode (get mode-map key)]
-             next-mode
-             (or current-secondary (get mode-map :default))))))
-
 (defn handle-edit-mode-keys [keys state]
   "Handle keypresses in edit mode."
   (if (= edit-mode (get-in state [:mode :primary]))
     (let [new-keys (set/difference (get-in state [:keyboard :pressed])
                                    (get-in state [:keyboard :previous-pressed]))
           new-keys (filter (fn [k] (js/isNaN (js/parseInt k))) new-keys)
-          new-keys (filter (fn [k] (not (contains? #{\newline \return \formfeed} k))) new-keys)
+          new-keys (filter (fn [k] (not (contains? (keys (.-keys edit-mode)) k))) new-keys)
           part-id (get-selected-part-id (:parts state))]
       (if part-id
         (-> state
@@ -349,12 +319,15 @@
     (let [new-keys (set/difference (get-in state [:keyboard :pressed])
                                    (get-in state [:keyboard :previous-pressed]))
           part-id (get-selected-part-id (:parts state))]
-      (if (contains? new-keys "\b")
+      (if (contains? new-keys \backspace)
         (-> state
+            ;; Remove the current part
             (update-in [:parts] dissoc part-id)
-            (update-in [:parts] (fn [parts] (if-let [key (first (keys parts))]
-                                              (assoc-in parts [key :highlight] true)
-                                              parts))))
+            ;; Re-highlight the first part
+            (update-in [:parts] (fn [parts]
+                                  (if-let [key (first (keys parts))]
+                                    (assoc-in parts [key :highlight] true)
+                                    parts))))
         state))
     state))
 
@@ -387,7 +360,6 @@
    [[:keyboard :pressed] [] handle-edit-mode-keys]
    [[:keyboard :pressed] [] handle-delete-mode-keys]
    [[:keyboard :pressed] [] handle-mode-keys]
-   ;; [[:keyboard :pressed] [:mode] handle-secondary-mode-keys]
    [[:keyboard :pressed] [] handle-part-keys]
    [[:mouse :location] [:ui :buttons] update-button-hover]
    [[:mouse] [:ui :buttons] update-button-click]
@@ -542,7 +514,6 @@
   (api/get-status
    (fn [resp]
      (let [position (util/->world (vals (:position resp)))]
-       (.log js/console "Robot position:" (str position))
        (swap! app-state assoc-in [:robot :position] position)))
    (fn [err] (.log js/console "Error when fetching position info: " (str err)))))
 
