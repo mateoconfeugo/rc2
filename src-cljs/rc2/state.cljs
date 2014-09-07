@@ -227,21 +227,19 @@
 (defn get-selected-part-id [parts]
   (first (first (filter (fn [[k v]] (highlighted? v)) parts))))
 
-(defn handle-waypoint-updates [state route]
-  (let [mouse (:mouse state)
-        buttons (vals (get-in state [:ui :buttons]))
-        waypoints (:waypoints state)]
+(defn handle-waypoint-updates [mouse buttons primary secondary parts route]
+  (let [buttons (vals buttons)]
     (if (and (not (some :hover buttons))
              (clicked? mouse 0))
       (cond
-       (and (= insert-mode (get-in state [:mode :primary]))
-            (get-selected-part-id (:parts state)))
+       (and (= insert-mode primary)
+            (get-selected-part-id parts))
        (update-in route [:waypoints]
                   conj {:location (:location mouse)
                         :highlight true
-                        :kind (.-keyword (get-in state [:mode :secondary]))
-                        :part-id (get-selected-part-id (:parts state))})
-       (= delete-mode (get-in state [:mode :primary]))
+                        :kind (.-keyword secondary)
+                        :part-id (get-selected-part-id parts)})
+       (= delete-mode primary)
        (-> route
            (update-in [:waypoints] (fn [wps] (filter #(not (:highlight %)) wps)))
            (assoc :plan []))
@@ -274,8 +272,8 @@
         false)))
 
 (defn update-button-hover [mouse-pos buttons]
-  (into {} (map (fn [[k btn]] [k (assoc btn :hover
-                                        (in-button? (vals buttons) btn mouse-pos))])
+  (into {} (map (fn [[k btn]]
+                  [k (assoc btn :hover (in-button? (vals buttons) btn mouse-pos))])
                 buttons)))
 
 (defn update-button-click [mouse buttons]
@@ -295,65 +293,59 @@
                           (filterv #(:click %) buttons)))]
     (apply-state-transforms state transforms)))
 
-(defn handle-part-keys [keys state]
+(defn handle-part-keys [keys parts mode state]
   "Set the selected part based on the current keys."
-  (let [parts (:parts state)
-        primary-mode (:primary (:mode state))
-        selected-part (get-selected-part-id (:parts state))]
+  (let [selected-part (get-selected-part-id (:parts state))]
     (if-let [part-num (first (->> keys
                                   (map js/parseInt)
                                   (filter (fn [k] (not (js/isNaN k))))))]
-      (if (or (= edit-mode primary-mode) (contains? parts part-num))
-        (-> state
-            ((fn [s] (if selected-part
-                       (assoc-in s [:parts selected-part :highlight] false)
-                       s)))
-            (assoc-in [:parts part-num :highlight] true))
-        state)
-      state)))
+      (if (or (= edit-mode mode) (contains? parts part-num))
+        (-> parts
+            ((fn [ps] (if selected-part
+                       (assoc-in ps [selected-part :highlight] false)
+                       ps)))
+            (assoc-in [part-num :highlight] true))
+        parts)
+      parts)))
 
-(defn handle-mode-keys [pressed-keys state]
+(defn handle-mode-keys [pressed-keys primary secondary state]
   "Update state based on the current mode's keybindings."
-  (let [primary (get-in state [:mode :primary])
-        secondary (get-in state [:mode :secondary])]
-    (-> state
-        (#(reduce (fn [s k] (handle-keypress primary k s)) % pressed-keys))
-        (#(reduce (fn [s k] (handle-keypress secondary k s)) % pressed-keys)))))
+  (-> state
+      (#(reduce (fn [s k] (handle-keypress primary k s)) % pressed-keys))
+      (#(reduce (fn [s k] (handle-keypress secondary k s)) % pressed-keys))))
 
-(defn handle-edit-mode-keys [keys state]
+(defn handle-edit-mode-keys [keys old-keys mode parts]
   "Handle keypresses in edit mode."
-  (if (= edit-mode (get-in state [:mode :primary]))
-    (let [new-keys (set/difference (get-in state [:keyboard :pressed])
-                                   (get-in state [:keyboard :previous-pressed]))
+  (if (= edit-mode mode)
+    (let [new-keys (set/difference keys old-keys)
           new-keys (filter (fn [k] (js/isNaN (js/parseInt k))) new-keys)
           new-keys (filter (fn [k] (not (contains? (keys (.-keys edit-mode)) k))) new-keys)
-          part-id (get-selected-part-id (:parts state))]
+          part-id (get-selected-part-id parts)]
       (if part-id
-        (-> state
-            (update-in [:parts part-id :name]
+        (-> parts
+            (update-in [part-id :name]
                        (fn [name]
                          (reduce (fn [n c] (if (= "\b" c) (apply str (butlast n)) (str n c)))
                                  name new-keys))))
-        state))
-    state))
+        parts))
+    parts))
 
-(defn handle-delete-mode-keys [_ state]
+(defn handle-delete-mode-keys [keys old-keys mode parts]
   "Handle keypresses in delete mode."
-  (if (= delete-mode (get-in state [:mode :primary]))
-    (let [new-keys (set/difference (get-in state [:keyboard :pressed])
-                                   (get-in state [:keyboard :previous-pressed]))
-          part-id (get-selected-part-id (:parts state))]
+  ;; TODO Maybe remove all waypoints for deleted parts?
+  (if (= delete-mode mode)
+    (let [new-keys (set/difference keys old-keys)
+          part-id (get-selected-part-id parts)]
       (if (contains? new-keys \backspace)
-        (-> state
+        (-> parts
             ;; Remove the current part
-            (update-in [:parts] dissoc part-id)
+            (dissoc part-id)
             ;; Re-highlight the first part
-            (update-in [:parts] (fn [parts]
-                                  (if-let [key (first (keys parts))]
-                                    (assoc-in parts [key :highlight] true)
-                                    parts))))
-        state))
-    state))
+            ((fn [parts] (if-let [key (first (keys parts))]
+                           (assoc-in parts [key :highlight] true)
+                           parts))))
+        parts))
+    parts))
 
 (defn update-plan-annotations [waypoints plan]
   (let [loc->wp (into {} (map (fn [wp] [(:location wp) wp]) waypoints))]
@@ -380,17 +372,30 @@
 
 (def pre-draw-transforms
   [
-   [[[:time]] [:time] (fn [_ _] (util/current-time))]
-   [[[:keyboard :pressed] []] [] handle-edit-mode-keys]
-   [[[:keyboard :pressed] []] [] handle-delete-mode-keys]
-   [[[:keyboard :pressed] []] [] handle-mode-keys] ;; TODO Refactor this to take inputs explicitly
-   [[[:keyboard :pressed] []] [] handle-part-keys]  ;; TODO Refactor this to take inputs explicitly
+   [[] [:time] util/current-time]
+   [[[:keyboard :pressed]
+     [:keyboard :previous-pressed]
+     [:mode :primary]
+     [:parts]] [:parts] handle-edit-mode-keys]
+   [[[:keyboard :pressed]
+     [:keyboard :previous-pressed]
+     [:mode :primary]
+     [:parts]] [:parts] handle-delete-mode-keys]
+   [[[:keyboard :pressed]
+     [:mode :primary]
+     [:mode :secondary] []] [] handle-mode-keys]
+   [[[:keyboard :pressed] [:parts] [:mode :primary]] [:parts] handle-part-keys]
    [[[] [:ui :buttons]] [:ui :buttons] update-button-visibilities]
-
    [[[:mouse :location] [:ui :buttons]] [:ui :buttons] update-button-hover]
    [[[:mouse] [:ui :buttons]] [:ui :buttons] update-button-click]
+
    [[[:ui :buttons] []] [] handle-button-actions]
-   [[[] [:route]] [:route] handle-waypoint-updates]
+   [[[:mouse]
+     [:ui :buttons]
+     [:mode :primary]
+     [:mode :secondary]
+     [:parts]
+     [:route]] [:route] handle-waypoint-updates]
    [[[:mouse :location] [:route :waypoints]] [:route :waypoints] highlight-waypoints]
    [[[:route :waypoints] [:route :plan]] [:route :plan] update-plan-annotations]
    [[[:route :plan] [:route :animation]] [:route :animation] update-plan-animation]
