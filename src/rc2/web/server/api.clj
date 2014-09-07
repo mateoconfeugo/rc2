@@ -35,12 +35,17 @@
                  :post-redirect? (fn [ctx] {:location (format "/api/v1/tasks/%s" (::id ctx))})))
   (ANY "/api/v1/tasks/:id" [id]
        (resource :available-media-types ["application/json"]
-                 :allowed-methods [:delete :get]
+                 :allowed-methods [:get]
+                 :exists? (fn [_] (let [task (task/get-task (Integer. id))]
+                                    (if task {::task task})))
+                 :handle-ok ::task))
+  (ANY "/api/v1/tasks/:id/cancel" [id]
+       (resource :available-media-types ["application/json"]
+                 :allowed-methods [:post]
                  :exists? (fn [_] (let [task (task/get-task (Integer. id))]
                                     (if task {::task task})))
                  :handle-ok ::task
-                 ;; TODO Change this to a PATCH or PUT instead of DELETE.
-                 :delete! (fn [_] (task/cancel-task! (Integer. id)))))
+                 :post! (fn [_] (task/cancel-task! (Integer. id)))))
   (ANY "/api/v1/events" []
        (resource :available-media-types ["application/json"]
                  :allowed-methods [:get]

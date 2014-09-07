@@ -503,7 +503,6 @@
       (do
         (start-task! {:type :move :waypoint (clean-waypoint next-step)}
                      :success (fn [task]
-                                (.log js/console "Move task id is" (:id task))
                                 (swap! app-state assoc-in [:route :execution :task-id] (:id task)))
                      :error (fn [_] (swap! app-state #(enter pause-mode %))))
         (-> route
