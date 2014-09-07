@@ -112,7 +112,8 @@
                  :plan []
                  :animation default-animation-state
                  :execution {:current 0
-                             :plan []}}
+                             :plan []
+                             :task-id nil}}
          :parts {0 {:name "DEFAULT" :highlight true}}
          :ui {
               ;; Buttons have a name (rendered on the screen), a target vector, and a
@@ -467,16 +468,19 @@
           (update-in [:tasks :complete] (fn [tasks] (conj tasks task))))
       app-state)))
 
-(defn start-task! [task]
+(defn start-task! [task & {:keys [error success] :or {error nil success nil}}]
   "Send a task to the server and add its ID to the pending task list."
   (api/add-task!
    task
    (fn [resp]
      (.log js/console "Started task " (str resp) "id:" (:id resp))
+     (when success (success resp))
      (if (= "complete" (:state resp))
        (swap! app-state update-task-state resp)
        (swap! app-state update-in [:tasks :pending] #(conj % resp))))
-   (fn [resp] (.log js/console "Failed to add task " (str task)))))
+   (fn [resp]
+     (.log js/console "Failed to add task " (str task))
+     (when error (error resp)))))
 
 (defn clean-waypoint [waypoint]
   (let [{:keys [location kind part-id]} waypoint
@@ -497,13 +501,17 @@
     (.log js/console "Next step:" (str next-step))
     (if next-step
       (do
-        (start-task! {:type :move :waypoint (clean-waypoint next-step)})
+        (start-task! {:type :move :waypoint (clean-waypoint next-step)}
+                     :success (fn [task]
+                                (.log js/console "Move task id is" (:id task))
+                                (swap! app-state assoc-in [:route :execution :task-id] (:id task)))
+                     :error (fn [_] (swap! app-state #(enter pause-mode %))))
         (-> route
             (assoc-in [:execution :current] (+ 1 current))
             (assoc-in [:execution :plan] plan)))
       (do
         (.log js/console "Path execution complete.")
-        route))))
+        (assoc-in route [:execution :task-id] nil)))))
 
 (defn pause-execution! [route]
   ;; TODO Pause the task on the server that's currently executing
