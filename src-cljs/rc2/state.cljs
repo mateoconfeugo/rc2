@@ -41,14 +41,14 @@
     (.log js/console "Exiting" lighter "mode")
     (reduce (fn [s f] (f s)) state exit-fns))
   (handle-keypress [this key state]
-    (if-let [handler (or (get (.-keys this) key)
-                         (get (.-keys this) :default))]
+    (if-let [handler (get (.-keys this) key)]
       (handler state)
       state)))
 
 (declare enter-mode)
 
 ;; Minor modes
+(def default-mode (->InputMode :default :secondary {} "" [] []))
 (def source-mode (->InputMode :source :secondary {} "SOURCE" [] []))
 (def sink-mode (->InputMode :sink :secondary {} "SINK" [] []))
 (def pause-mode (->InputMode :pause :secondary {} "PAUSE" [] []))
@@ -58,31 +58,39 @@
 (def edit-mode (->InputMode :edit :primary
                             {\newline #(enter-mode :insert %)
                              \return #(enter-mode :insert %)
-                             \formfeed #(enter-mode :insert %)} "EDIT" [] []))
+                             \formfeed #(enter-mode :insert %)}
+                            "EDIT"
+                             [#(enter-mode :default %)] []))
 (def delete-mode (->InputMode :delete :primary
-                              {\I #(enter-mode :insert %)} "DELETE" [] []))
+                              {\I #(enter-mode :insert %)}
+                              "DELETE"
+                              [#(enter-mode :default %)] []))
 (def insert-mode (->InputMode :insert :primary
                               {\D #(enter-mode :delete %)
                                \E #(enter-mode :edit %)
                                \P #(enter-mode :source %)
-                               :default #(enter-mode :sink %)} "INSERT" [] []))
+                               \S #(enter-mode :sink %)}
+                              "INSERT"
+                              [#(enter-mode :sink %)] []))
 (def execute-mode (->InputMode :execute :primary
                                {\backspace #(enter-mode :insert %)
                                 \newline #(enter-mode :run %)
                                 \return #(enter-mode :run %)
                                 \formfeed #(enter-mode :run %)
-                                :default #(enter-mode :pause %)}
-                               "EXECUTE" [] []))
+                                \space #(enter-mode :pause %)}
+                               "EXECUTE"
+                               [#(enter-mode :run %)] []))
 
 (defn enter-mode [mode state]
   (enter (condp = mode
-                 :insert insert-mode
-                 :delete delete-mode
-                 :edit edit-mode
-                 :source source-mode
-                 :sink sink-mode
-                 :run run-mode
-                 :pause pause-mode)
+           :default default-mode
+           :insert insert-mode
+           :delete delete-mode
+           :edit edit-mode
+           :source source-mode
+           :sink sink-mode
+           :run run-mode
+           :pause pause-mode)
          state))
 
 (def default-animation-state {:index 0
