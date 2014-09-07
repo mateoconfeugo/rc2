@@ -279,6 +279,7 @@ running API server, and provides a graphical, interactive environment for:
   - [ ] Provide UI/API for calibrating the robot
   - [ ] Consider part orientations in planning phase
   - [ ] Generate GCode to drive Rostock electronics
+  - [ ] Save and load calibration data, plans, etc. to and from persistent storage
 
 ** Advanced Features
   - [ ] Capture imagery from arm-mounted camera
