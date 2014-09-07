@@ -121,6 +121,7 @@
               ;; is called with the value in this state tree at the 'target' path,
               ;; which is then replaced with the returned value.
               :buttons {:plan {:text "Plan"
+                               :inputs [[:route :waypoints]]
                                :target [:route :waypoints]
                                :hover false
                                :click false
@@ -129,6 +130,7 @@
                                         waypoints)
                                :visible-when (constantly true)}
                         :start {:text "Start"
+                                :inputs [[]]
                                 :target []
                                 :hover false
                                 :click false
@@ -142,6 +144,7 @@
                                                 (not
                                                  (= run-mode (get-in state [:mode :secondary]))))}
                         :pause {:text "Pause"
+                                :inputs [[]]
                                 :target []
                                 :hover false
                                 :click false
@@ -155,7 +158,8 @@
                                                  (= execute-mode (get-in state [:mode :primary]))
                                                  (= run-mode (get-in state [:mode :secondary]))))}
                         :stop {:text "Stop"
-                               :target []
+                               :inputs [[]]
+                               :target [[]]
                                :hover false
                                :click false
                                :xform
@@ -169,6 +173,7 @@
                                      state)))
                                :visible-when (constantly true)}
                         :clear {:text "Clear"
+                                :inputs [[:route]]
                                 :target [:route]
                                 :hover false
                                 :click false
@@ -196,14 +201,15 @@
 (defn apply-state-transforms [state transforms]
   "Apply a series of transforms of the form [in-path out-path transform] to a state map and return
   the updated map."
-  (reduce (fn [prev-state [in-path out-path xform]]
-            (let [xform-state (xform (get-in prev-state in-path)
-                                     (get-in prev-state out-path))]
+  (reduce (fn [prev-state [in-paths out-path xform]]
+            (let [xform-state (apply xform (map #(get-in prev-state %) in-paths))]
               (if (empty? out-path)
                 xform-state
                 (assoc-in prev-state out-path xform-state))))
           state
           transforms))
+
+;; TODO Refactor transforms to explicitly specify if they need the output destination as an input
 
 (defn copy [in out] in)
 
@@ -285,7 +291,7 @@
   (let [buttons (vals buttons)
         transforms (filterv
                     (comp not nil?)
-                    (mapv (fn [btn] [(:target btn) (:target btn) (:xform btn)])
+                    (mapv (fn [btn] [(:inputs btn) (:target btn) (:xform btn)])
                           (filterv #(:click %) buttons)))]
     (apply-state-transforms state transforms)))
 
@@ -374,21 +380,22 @@
 
 (def pre-draw-transforms
   [
-   [[:time] [:time] (fn [_ _] (util/current-time))]
-   [[:keyboard :pressed] [] handle-edit-mode-keys]
-   [[:keyboard :pressed] [] handle-delete-mode-keys]
-   [[:keyboard :pressed] [] handle-mode-keys]
-   [[:keyboard :pressed] [] handle-part-keys]
-   [[] [:ui :buttons] update-button-visibilities]
-   [[:mouse :location] [:ui :buttons] update-button-hover]
-   [[:mouse] [:ui :buttons] update-button-click]
-   [[:ui :buttons] [] handle-button-actions]
-   [[] [:route] handle-waypoint-updates]
-   [[:mouse :location] [:route :waypoints] highlight-waypoints]
-   [[:route :waypoints] [:route :plan] update-plan-annotations]
-   [[:route :plan] [:route :animation] update-plan-animation]
-   [[:mouse :buttons] [:mouse :previous-buttons] copy]
-   [[:keyboard :pressed] [:keyboard :previous-pressed] copy]
+   [[[:time]] [:time] (fn [_ _] (util/current-time))]
+   [[[:keyboard :pressed] []] [] handle-edit-mode-keys]
+   [[[:keyboard :pressed] []] [] handle-delete-mode-keys]
+   [[[:keyboard :pressed] []] [] handle-mode-keys] ;; TODO Refactor this to take inputs explicitly
+   [[[:keyboard :pressed] []] [] handle-part-keys]  ;; TODO Refactor this to take inputs explicitly
+   [[[] [:ui :buttons]] [:ui :buttons] update-button-visibilities]
+
+   [[[:mouse :location] [:ui :buttons]] [:ui :buttons] update-button-hover]
+   [[[:mouse] [:ui :buttons]] [:ui :buttons] update-button-click]
+   [[[:ui :buttons] []] [] handle-button-actions]
+   [[[] [:route]] [:route] handle-waypoint-updates]
+   [[[:mouse :location] [:route :waypoints]] [:route :waypoints] highlight-waypoints]
+   [[[:route :waypoints] [:route :plan]] [:route :plan] update-plan-annotations]
+   [[[:route :plan] [:route :animation]] [:route :animation] update-plan-animation]
+   [[[:mouse :buttons] [:mouse :previous-buttons]] [:mouse :previous-buttons] copy]
+   [[[:keyboard :pressed] [:keyboard :previous-pressed]] [:keyboard :previous-pressed] copy]
    ])
 
 (defn on-state-change! []

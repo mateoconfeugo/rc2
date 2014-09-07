@@ -6,16 +6,31 @@
 
 (describe
  "apply-state-transforms"
- (it "applies the transforms in sequence"
+ (it "applies a transform with zero inputs"
+     (let [state {:a {:b 1}}
+           transforms [[[] [:a :b] (fn [] :foo)]]
+           results (state/apply-state-transforms state transforms)]
+       (should= :foo (get-in results [:a :b]))))
+ (it "applies a transform with one input"
+     (let [state {:a {:b 1}}
+           transforms [[[[:a :b]] [:a :b] inc]]
+           results (state/apply-state-transforms state transforms)]
+       (should= 2 (get-in results [:a :b]))))
+ (it "applies a transform with two inputs"
+     (let [state {:a {:b 1}
+                  :c {:d {:e [4 5 6]}}}
+           transforms [[[[:a :b] [:c :d :e]] [:c :d :e] #(conj %2 %1)]]
+           results (state/apply-state-transforms state transforms)]
+       (should= [4 5 6 1] (get-in results [:c :d :e]))))
+  (it "applies the transforms in sequence"
      (let [state {:a {:b 1}
                   :c {:d {:e [4 5 6]}}}
            transforms [
-                       [[:a :b] [:a :b] inc]
-                       [[:c :d :e] [:c :d :e] #(mapv inc %1)]
-                       [[:a :b] [:c :d :e] #(conj %2 %1)]
-                       [[:c :d :e] [:c :d] #(assoc %2 :sum (reduce + %1))]
-                       [[] [:f] (constantly "foo")]
-                       [[:a :b] [] (fn [in out] out)]
+                       [[[:a :b]] [:a :b] inc]
+                       [[[:c :d :e]] [:c :d :e] #(mapv inc %1)]
+                       [[[:a :b] [:c :d :e]] [:c :d :e] #(conj %2 %1)]
+                       [[[:c :d :e] [:c :d]] [:c :d] #(assoc %2 :sum (reduce + %1))]
+                       [[[]] [:f] (constantly "foo")]
                        ]
            results (state/apply-state-transforms state transforms)]
        (should= 2 (get-in results [:a :b]))
