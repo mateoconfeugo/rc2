@@ -160,7 +160,7 @@
                                :xform
                                (fn [state]
                                  (let [mode (:mode state)]
-                                   (if (= :execute (:primary mode))
+                                   (if (= execute-mode (:primary mode))
                                      (-> state
                                          (update-in [:route] stop-execution!)
                                          (#(enter insert-mode %))
@@ -428,20 +428,23 @@
   (let [loc->wp (into {} (map (fn [wp] [(:location wp) wp]) waypoints))]
     (map (partial get loc->wp) (map util/->world plan))))
 
-(defn on-task-completion [app-state task]
+(defn on-task-completion [state task]
   "Handle task completion events."
   (let [type (:type task)
-        result (:result task)]
+        result (:result task)
+        primary (get-in state [:mode :primary])
+        secondary (get-in state [:mode :secondary])]
     (.log js/console type " task complete")
     (cond
-     (= "plan" type) (-> app-state
+     (= "plan" type) (-> state
                          (assoc-in [:route :plan]
-                                   (annotate-plan (get-in app-state [:route :waypoints]) result))
+                                   (annotate-plan (get-in state [:route :waypoints]) result))
                          (assoc-in [:route :animation] default-animation-state)
                          (assoc-in [:route :execution :current] 0))
-     (= "move" type) (-> app-state
-                         (update-in [:route] resume-execution!))
-     :else app-state)))
+     (and (= "move" type)
+          (= execute-mode primary)
+          (= run-mode secondary)) (update-in state [:route] resume-execution!)
+     :else state)))
 
 (defn update-task-state [app-state task]
   (let [state (:state task)
@@ -489,8 +492,7 @@
             (assoc-in [:execution :plan] plan)))
       (do
         (.log js/console "Path execution complete.")
-        route))
-    ))
+        route))))
 
 (defn pause-execution! [route]
   ;; TODO Pause the task on the server that's currently executing
