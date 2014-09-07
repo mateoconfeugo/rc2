@@ -245,14 +245,15 @@ running API server, and provides a graphical, interactive environment for:
    To preserve these properties, the majority of state transformation occurs through the function
    =apply-state-transforms=. This function takes a state snapshot and a sequence of transform
    definitions and yields an updated state snapshot obtained by applying each of the transforms in
-   order. Each transform sets a pair of paths and a function which takes the input and yields the
-   desired output. =apply-state-transforms= applies each transform to the value located in the state
-   snapshot at the input path and stores the resulting value under the output path. By doing this,
-   the transform functions are able to be written generically - for example, the =copy= transform
-   simply copies the value from the input path to the output path, and can be applied anywhere in
-   the state tree without modification. Additionally, most modifications to the structure of the
-   application state are trivial to make, as only the relevant paths in the transform definitions
-   need be modified.
+   order. Each transform provides a pair of paths to its input and output and a function which takes
+   the input and yields the desired output.
+
+   =apply-state-transforms= applies each transform to the value located in the state snapshot at the
+   input path and stores the resulting value under the output path. By doing this, the transform
+   functions are able to be written generically - for example, the =copy= transform simply copies
+   the value from the input path to the output path, and can be applied anywhere in the state tree
+   without modification. Additionally, most modifications to the structure of the application state
+   are trivial to make, as only the relevant paths in the transform definitions need be modified.
 
    Because =apply-state-transforms= is a pure function with no side effects (though its transforms
    may not be), it is possible to use in transform functions themselves. The =handle-button-actions=
@@ -271,7 +272,14 @@ running API server, and provides a graphical, interactive environment for:
    of a canvas coordinate outside of the client.
 
 * Unimplemented Features
-  - [ ] Consider part orientations in planning phase
-  - [ ] Capture imagery from arm-mounted camera
+** Base Feature Set
   - [ ] Display event log
+
+** Intermediate Features
   - [ ] Provide UI/API for calibrating the robot
+  - [ ] Consider part orientations in planning phase
+  - [ ] Generate GCode to drive Rostock electronics
+
+** Advanced Features
+  - [ ] Capture imagery from arm-mounted camera
+
