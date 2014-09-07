@@ -283,3 +283,33 @@ running API server, and provides a graphical, interactive environment for:
 ** Advanced Features
   - [ ] Capture imagery from arm-mounted camera
 
+* Engineering
+These concerns affect the quality of the codebase, and will probably need to be addressed as the
+application complexity increases.
+
+** UI wiring complexity
+I'm a little concerned about how complex it's getting to add new behaviors to the UI. The wiring is
+convoluted and requires touching a lot of places; there's got to be a better way to hook things up
+so that the concerns are better separated. The current implementation is quite naive, and I think
+with some more thought it can be improved significantly. This extends not only to buttons, but to
+modes as well - they seem like they could be much better encapsulated than they are now.
+
+** Promiscuous state transformations
+Since we currently use a single point of truth for all state, having functions that require inputs
+from multiple places in the tree means that you have to pass large amounts of unrelated data into
+them in the form of the whole state tree. For example, =handle-waypoint-updates= requires only a few
+pieces of data but must request access to the entire tree for its processing. This is an antipattern
+which could be alleviated by making it easier to request more data and use transforms with
+dfifferent arities.
+
+As well, functions that output to the entire tree are probably an anti-pattern. I should take a look
+at them and see if they can be split into smaller ones.
+
+** Test coverage
+A lot of this code doesn't have tests. It shouldn't be too difficult to test, given the dependencies
+are mostly explicit - but this requires time and effort that is hard to come by sometimes.
+
+** Server vs client state
+Right now the server/client state synchronization is quite ad-hoc - it should be formalized. It
+probably makes sense to have a separate state machine within the client code that mirrors the server
+state and allows easier transformations on it.
