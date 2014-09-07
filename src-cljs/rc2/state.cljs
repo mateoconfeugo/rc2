@@ -126,7 +126,7 @@
                                :xform (fn [waypoints]
                                         (plan-route! waypoints)
                                         waypoints)
-                               :visible true}
+                               :visible-when (constantly true)}
                         :start {:text "Start"
                                 :target []
                                 :hover false
@@ -136,10 +136,10 @@
                                   (-> state
                                       (#(enter execute-mode %))
                                       (#(enter run-mode %))
-                                      (assoc-in [:ui :buttons :start :visible] false)
-                                      (assoc-in [:ui :buttons :pause :visible] true)
                                       (update-in [:route] resume-execution!)))
-                                :visible true}
+                                :visible-when (fn [state]
+                                                (not
+                                                 (= run-mode (get-in state [:mode :secondary]))))}
                         :pause {:text "Pause"
                                 :target []
                                 :hover false
@@ -149,10 +149,11 @@
                                   (-> state
                                       (#(enter execute-mode %))
                                       (#(enter pause-mode %))
-                                      (assoc-in [:ui :buttons :start :visible] true)
-                                      (assoc-in [:ui :buttons :pause :visible] false)
                                       (update-in [:route] pause-execution!)))
-                                :visible false}
+                                :visible-when (fn [state]
+                                                (and
+                                                 (= execute-mode (get-in state [:mode :primary]))
+                                                 (= run-mode (get-in state [:mode :secondary]))))}
                         :stop {:text "Stop"
                                :target []
                                :hover false
@@ -166,13 +167,13 @@
                                          (#(enter insert-mode %))
                                          (#(enter sink-mode %)))
                                      state)))
-                               :visible true}
+                               :visible-when (constantly true)}
                         :clear {:text "Clear"
                                 :target [:route]
                                 :hover false
                                 :click false
                                 :xform (fn [route] (assoc route :waypoints [] :plan []))
-                                :visible true}}}
+                                :visible-when (constantly true)}}}
          :mode {:primary insert-mode
                 :secondary sink-mode}
          :robot {:position (util/->world 0 0)
@@ -247,6 +248,15 @@
            (assoc wp :highlight (< (util/distance (:location wp) mouse)
                                    (+ draw/waypoint-radius 10))))
          waypoints)))
+
+(defn update-button-visibilities [state buttons]
+  (into {}
+        (map
+         (fn [[id btn]]
+           (let [handler (:visible-when btn)
+                 is-visible (handler state)]
+             [id (assoc btn :visible is-visible)]))
+         buttons)))
 
 (defn in-button? [btns btn pos]
   (let [{:keys [coord width height]} (draw/button-render-details btns btn)
@@ -369,6 +379,7 @@
    [[:keyboard :pressed] [] handle-delete-mode-keys]
    [[:keyboard :pressed] [] handle-mode-keys]
    [[:keyboard :pressed] [] handle-part-keys]
+   [[] [:ui :buttons] update-button-visibilities]
    [[:mouse :location] [:ui :buttons] update-button-hover]
    [[:mouse] [:ui :buttons] update-button-click]
    [[:ui :buttons] [] handle-button-actions]
