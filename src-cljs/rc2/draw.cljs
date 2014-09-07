@@ -113,14 +113,16 @@
     (draw-buttons (vals buttons))))
 
 (defn mode-color [mode]
-  (condp = (:primary mode)
-    :delete delete-color
-    :insert (condp = (:secondary mode)
-              :source source-color
-              :sink sink-color
-              default-color)
-    :edit dark-color
-    default-color))
+  (let [primary (.-keyword (:primary mode))
+        secondary (.-keyword (:secondary mode))]
+   (condp = primary
+     :delete delete-color
+     :insert (condp = secondary
+               :source source-color
+               :sink sink-color
+               default-color)
+     :edit dark-color
+     default-color)))
 
 (defn draw-coordinates [mode coord]
   (let [context (util/get-context)
@@ -138,19 +140,9 @@
 (defn draw-mode-info [{:keys [primary secondary]}]
   (let [canvas (util/get-canvas)
         context (util/get-context)
-        primary-text (cond
-                      (= :insert primary) "INSERT"
-                      (= :delete primary) "DELETE"
-                      (= :edit primary) "EDIT"
-                      (= :execute primary) "EXECUTE"
-                      :else (str primary))
-        secondary-text (cond
-                        (= :source secondary) "SOURCE "
-                        (= :sink secondary) "SINK "
-                        (= :run secondary) "RUNNING "
-                        (= :pause secondary) "PAUSED "
-                        :else "")
-        text (str secondary-text primary-text " MODE")
+        primary-text (.-lighter primary)
+        secondary-text (.-lighter secondary)
+        text (str secondary-text " " primary-text " MODE")
         x-off (- (/ (:width (text-size text :size 14)) 2))
         y-off 60
         coord (util/coord+ (util/world-edge :bottom) (util/->world x-off y-off))]

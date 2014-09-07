@@ -14,6 +14,77 @@
 (def task-update-interval 500) ;; Check for task state changes every 500ms.
 (def position-update-interval 500) ;; Check for position state changes every 500ms.
 
+(defprotocol Mode
+  "Protocol for interacting with RC2 input modes."
+  (enter [this state] "Enable the given mode.")
+  (exit [this state] "Disable the given mode.")
+  (handle-keypress [this state key] "Handle a keypress while the given mode is active."))
+
+;; A primary or secondary mode, like insert, edit, source or sink.
+;; name: the name of the mode, e.g. :execute
+;; kind: the type of mode this is. One of :primary or :secondary.
+;; keys: a map from key to transform function, where the function takes the current mode and state
+;; and returns an updated state.
+;; lighter: a string to display in the UI when this mode is active
+;; enter-fns: a collection of functions to call when the mode is entered. These functions should
+;; take the current state and return an updated state.
+;; exit-fns: a collection of functions to call when the mode exits. These functions should take the
+;; current state and return an updated state.
+(defrecord InputMode [keyword kind keys lighter enter-fns exit-fns]
+  Mode
+  (enter [this state]
+    (.log js/console "Entering" lighter "mode")
+    (-> state
+        (#(reduce (fn [s f] (f s)) % enter-fns))
+        (assoc-in [:mode (.-kind this)] this)))
+  (exit [this state]
+    (.log js/console "Exiting" lighter "mode")
+    (reduce (fn [s f] (f s)) state exit-fns))
+  (handle-keypress [this key state]
+    (if-let [handler (or (get (.-keys this) key)
+                         (get (.-keys this) :default))]
+      (handler state)
+      state)))
+
+(declare enter-mode)
+
+;; Minor modes
+(def source-mode (->InputMode :source :secondary {} "SOURCE" [] []))
+(def sink-mode (->InputMode :sink :secondary {} "SINK" [] []))
+(def pause-mode (->InputMode :pause :secondary {} "PAUSE" [] []))
+(def run-mode (->InputMode :run :secondary {} "RUN" [] []))
+
+;; Major modes
+(def edit-mode (->InputMode :edit :primary
+                            {\newline #(enter-mode :insert %)
+                             \return #(enter-mode :insert %)
+                             \formfeed #(enter-mode :insert %)} "EDIT" [] []))
+(def delete-mode (->InputMode :delete :primary
+                              {\I #(enter-mode :insert %)} "DELETE" [] []))
+(def insert-mode (->InputMode :insert :primary
+                              {\D #(enter-mode :delete %)
+                               \E #(enter-mode :edit %)
+                               \P #(enter-mode :source %)
+                               :default #(enter-mode :sink %)} "INSERT" [] []))
+(def execute-mode (->InputMode :execute :primary
+                               {\backspace #(enter-mode :insert %)
+                                \newline #(enter-mode :run %)
+                                \return #(enter-mode :run %)
+                                \formfeed #(enter-mode :run %)
+                                :default #(enter-mode :pause %)}
+                               "EXECUTE" [] []))
+
+(defn enter-mode [mode state]
+  (enter (condp = mode
+                 :insert insert-mode
+                 :delete delete-mode
+                 :edit edit-mode
+                 :source source-mode
+                 :sink sink-mode
+                 :run run-mode
+                 :pause pause-mode)
+         state))
+
 ;; Keybindings for moving between primary modes.
 (def mode-keys {:delete {\I :insert}
                 :insert {\D :delete
@@ -36,6 +107,10 @@
 (def default-animation-state {:index 0
                               :offsets (util/->world 0 0)})
 (def animation-step-distance 5)
+
+;; TODO Refactor the UI components out of this state tree. Buttons should probably implement some
+;; kind of protocol and have a generic interface. Probably would be useful to encapsulate some of
+;; the other chunks of information here.
 
 (def app-state
   (atom {
@@ -70,7 +145,8 @@
                                 :xform
                                 (fn [state]
                                   (-> state
-                                      (assoc-in [:mode] {:primary :execute :secondary :run})
+                                      (#(enter execute-mode %))
+                                      (#(enter run-mode %))
                                       (assoc-in [:ui :buttons :start :visible] false)
                                       (assoc-in [:ui :buttons :pause :visible] true)
                                       (update-in [:route] resume-execution!)))
@@ -82,7 +158,8 @@
                                 :xform
                                 (fn [state]
                                   (-> state
-                                      (assoc-in [:mode] {:primary :execute :secondary :pause})
+                                      (#(enter execute-mode %))
+                                      (#(enter pause-mode %))
                                       (assoc-in [:ui :buttons :start :visible] true)
                                       (assoc-in [:ui :buttons :pause :visible] false)
                                       (update-in [:route] pause-execution!)))
@@ -96,8 +173,9 @@
                                  (let [mode (:mode state)]
                                    (if (= :execute (:primary mode))
                                      (-> state
-                                       (update-in [:route] stop-execution!)
-                                       (assoc-in [:mode] {:primary :insert :secondary :sink}))
+                                         (update-in [:route] stop-execution!)
+                                         (#(enter insert-mode %))
+                                         (#(enter sink-mode %)))
                                      state)))
                                :visible true}
                         :clear {:text "Clear"
@@ -106,8 +184,8 @@
                                 :click false
                                 :xform (fn [route] (assoc route :waypoints [] :plan []))
                                 :visible true}}}
-         :mode {:primary  :insert
-                :secondary :sink}
+         :mode {:primary insert-mode
+                :secondary sink-mode}
          :robot {:position (util/->world 0 0)
                  :last-poll 0}
          :tasks {:pending []
@@ -143,8 +221,6 @@
   (.log js/console "debug-print in:" (str in) "out:" (str out))
   out)
 
-(defn current-time [] (.getTime (js/Date.)))
-
 (defn highlighted? [m]
   (:highlight m))
 
@@ -162,14 +238,14 @@
     (if (and (not (some :hover buttons))
              (clicked? mouse 0))
       (cond
-       (and (= :insert (get-in state [:mode :primary]))
+       (and (= insert-mode (get-in state [:mode :primary]))
             (get-selected-part-id (:parts state)))
        (update-in route [:waypoints]
                   conj {:location (:location mouse)
                         :highlight true
-                        :kind (get-in state [:mode :secondary])
+                        :kind (.-keyword (get-in state [:mode :secondary]))
                         :part-id (get-selected-part-id (:parts state))})
-       (= :delete (get-in state [:mode :primary]))
+       (= delete-mode (get-in state [:mode :primary]))
        (-> route
            (update-in [:waypoints] (fn [wps] (filter #(not (:highlight %)) wps)))
            (assoc :plan []))
@@ -222,7 +298,7 @@
     (if-let [part-num (first (->> keys
                                   (map js/parseInt)
                                   (filter (fn [k] (not (js/isNaN k))))))]
-      (if (or (= :edit primary-mode) (contains? parts part-num))
+      (if (or (= edit-mode primary-mode) (contains? parts part-num))
         (-> state
             ((fn [s] (if selected-part
                        (assoc-in s [:parts selected-part :highlight] false)
@@ -231,14 +307,13 @@
         state)
       state)))
 
-(defn handle-mode-keys [pressed-keys mode]
-  "Set the primary mode based on the current keys."
-  (let [primary (:primary mode)
-        mode-map (get mode-keys primary)
-        key (first (filter (fn [k] (contains? (set (keys mode-map)) k)) pressed-keys))]
-    (if-let [next-mode (get mode-map key)]
-      (assoc mode :primary next-mode :secondary nil)
-      mode)))
+(defn handle-mode-keys [pressed-keys state]
+  "Update state based on the current mode's keybindings."
+  (let [primary (get-in state [:mode :primary])
+        secondary (get-in state [:mode :secondary])]
+    (-> state
+        (#(reduce (fn [s k] (handle-keypress primary k s)) % pressed-keys))
+        (#(reduce (fn [s k] (handle-keypress secondary k s)) % pressed-keys)))))
 
 (defn handle-secondary-mode-keys [pressed-keys mode]
   "Set the secondary mode based on the current keys."
@@ -253,7 +328,7 @@
 
 (defn handle-edit-mode-keys [keys state]
   "Handle keypresses in edit mode."
-  (if (= :edit (get-in state [:mode :primary]))
+  (if (= edit-mode (get-in state [:mode :primary]))
     (let [new-keys (set/difference (get-in state [:keyboard :pressed])
                                    (get-in state [:keyboard :previous-pressed]))
           new-keys (filter (fn [k] (js/isNaN (js/parseInt k))) new-keys)
@@ -270,7 +345,7 @@
 
 (defn handle-delete-mode-keys [_ state]
   "Handle keypresses in delete mode."
-  (if (= :delete (get-in state [:mode :primary]))
+  (if (= delete-mode (get-in state [:mode :primary]))
     (let [new-keys (set/difference (get-in state [:keyboard :pressed])
                                    (get-in state [:keyboard :previous-pressed]))
           part-id (get-selected-part-id (:parts state))]
@@ -308,11 +383,11 @@
 
 (def pre-draw-transforms
   [
-   [[:time] [:time] (fn [_ _] (current-time))]
+   [[:time] [:time] (fn [_ _] (util/current-time))]
    [[:keyboard :pressed] [] handle-edit-mode-keys]
    [[:keyboard :pressed] [] handle-delete-mode-keys]
-   [[:keyboard :pressed] [:mode] handle-mode-keys]
-   [[:keyboard :pressed] [:mode] handle-secondary-mode-keys]
+   [[:keyboard :pressed] [] handle-mode-keys]
+   ;; [[:keyboard :pressed] [:mode] handle-secondary-mode-keys]
    [[:keyboard :pressed] [] handle-part-keys]
    [[:mouse :location] [:ui :buttons] update-button-hover]
    [[:mouse] [:ui :buttons] update-button-click]
@@ -481,7 +556,7 @@
    (fn [err] (.log js/console "Error when fetching position info: " (str err)))))
 
 (defn do-periodically [period last-path f]
-  (let [now (current-time)
+  (let [now (util/current-time)
         last (get-in @app-state last-path)
         elapsed (- now last)]
     (when (< period elapsed)

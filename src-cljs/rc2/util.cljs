@@ -115,3 +115,5 @@ Accepts the following keywords for their corresponding axes:
      (= :left type) (assoc origin :x (- x-range))
      (= :top type) (assoc origin :y y-range)
      (= :bottom type) (assoc origin :y (- y-range)))))
+
+(defn current-time [] (.getTime (js/Date.)))
