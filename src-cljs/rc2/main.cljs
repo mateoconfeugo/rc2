@@ -9,8 +9,7 @@
 (defn on-timer-tick! []
   "Handle timer ticks by triggering redraw of the application."
   (state/update-periodic-tasks!)
-  (draw/draw (state/on-state-change!))
-  (state/post-draw))
+  (draw/draw (state/on-state-change!)))
 
 (defn main []
   (api/get-meta (fn [data] (.log js/console "API server uptime:" (get data "uptime")))

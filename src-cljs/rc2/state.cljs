@@ -396,10 +396,6 @@
    [[:mouse :location] [:route :waypoints] highlight-waypoints]
    [[:route :waypoints] [:route :plan] update-plan-annotations]
    [[:route :plan] [:route :animation] update-plan-animation]
-   ])
-
-(def post-draw-transforms
-  [
    [[:mouse :buttons] [:mouse :previous-buttons] copy]
    [[:keyboard :pressed] [:keyboard :previous-pressed] copy]
    ])
@@ -408,13 +404,8 @@
   "Perform pre-draw transformations to application state."
   (swap! app-state apply-state-transforms pre-draw-transforms))
 
-(defn post-draw []
-  "Perform post-draw transformations to application state."
-  (swap! app-state apply-state-transforms post-draw-transforms))
-
 (defn on-event! []
-  (on-state-change!)
-  (post-draw))
+  (on-state-change!))
 
 (defn on-mouse-move! [event]
   "Handle mouse movement events."
