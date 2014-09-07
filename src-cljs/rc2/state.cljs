@@ -138,7 +138,6 @@
                                 (fn [state]
                                   (-> state
                                       (#(enter execute-mode %))
-                                      (#(enter run-mode %))
                                       (update-in [:route] resume-execution!)))
                                 :visible-when (fn [state]
                                                 (not
@@ -159,17 +158,16 @@
                                                  (= run-mode (get-in state [:mode :secondary]))))}
                         :stop {:text "Stop"
                                :inputs [[]]
-                               :target [[]]
+                               :target []
                                :hover false
                                :click false
                                :xform
                                (fn [state]
-                                 (let [mode (:mode state)]
-                                   (if (= execute-mode (:primary mode))
+                                 (let [mode (:primary (:mode state))]
+                                   (if (= execute-mode mode)
                                      (-> state
                                          (update-in [:route] stop-execution!)
-                                         (#(enter insert-mode %))
-                                         (#(enter sink-mode %)))
+                                         (#(enter insert-mode %)))
                                      state)))
                                :visible-when (constantly true)}
                         :clear {:text "Clear"
@@ -388,7 +386,6 @@
    [[[] [:ui :buttons]] [:ui :buttons] update-button-visibilities]
    [[[:mouse :location] [:ui :buttons]] [:ui :buttons] update-button-hover]
    [[[:mouse] [:ui :buttons]] [:ui :buttons] update-button-click]
-
    [[[:ui :buttons] []] [] handle-button-actions]
    [[[:mouse]
      [:ui :buttons]
