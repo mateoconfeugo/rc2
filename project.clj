@@ -32,7 +32,21 @@
             [lein-cljsbuild "1.0.3"]
             [speclj "2.9.1"]
             ]
-  :profiles {:dev {:plugins [[lein-marginalia "0.7.1"]]}}
+  :profiles {:dev {:plugins [[lein-marginalia "0.7.1"]]
+                   :dependencies [[cider/cider-nrepl "0.7.0"]]
+                   :repl-options {:nrepl-middleware
+                                  [cider.nrepl.middleware.classpath/wrap-classpath
+                                   cider.nrepl.middleware.complete/wrap-complete
+                                   cider.nrepl.middleware.info/wrap-info
+                                   cider.nrepl.middleware.inspect/wrap-inspect
+                                   cider.nrepl.middleware.macroexpand/wrap-macroexpand
+                                   ;cider.nrepl.middleware.ns/wrap-ns
+                                   cider.nrepl.middleware.resource/wrap-resource
+                                   cider.nrepl.middleware.stacktrace/wrap-stacktrace
+                                   cider.nrepl.middleware.test/wrap-test
+                                   cider.nrepl.middleware.trace/wrap-trace
+                                   ;; cider.nrepl.middleware.undef/wrap-undef
+                                   ]}}}
   :cljsbuild {
               :builds {:release {:source-paths ["src-cljs"]
                                  :compiler {:output-to "resources/public/js/rc2.js"
