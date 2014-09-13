@@ -13,7 +13,7 @@
 
 (def origin (->vec 0 0 0))
 
-(s/defn ->vec-vector :- Vec [p1 :- Vec p2 :- Vec]
+(s/defn vec- :- Vec [p1 :- Vec p2 :- Vec]
   "Compute the vector connecting p1 and p2."
   (->vec (map - p2 p1)))
 
@@ -24,7 +24,7 @@
 (s/defn displacement :- s/Num
   "Find the distance between two vecs"
   ([p :- Vec] (displacement origin p))
-  ([p1 :- Vec p2 :- Vec] (vector-length (->vec-vector p1 p2))))
+  ([p1 :- Vec p2 :- Vec] (vector-length (vec- p1 p2))))
 
 (s/defn rotate :- Vec [position :- Vec angle :- s/Num]
   "In three dimensions, rotate 'position around the Z axis by 'angle radians."
@@ -58,7 +58,7 @@
 (s/defn interpolate :- [Vec] [p1 :- Vec p2 :- Vec interval :- s/Num]
   "Create a set of vecs on the line between p1 and p2"
   (let [count (math/abs (/ (displacement p1 p2) interval))
-        v (->vec-vector p1 p2)
+        v (vec- p1 p2)
         uv (->unit-vector v)]
     (concat
      (for [n (range count)]
