@@ -18,6 +18,12 @@
   "Write the contents of a byte array to the given interface."
   (serial/write (:serial interface) array))
 
+(defn write-string [interface s]
+  (serial/write (:serial interface) (.getBytes s)))
+
+(defn write-line [interface line]
+  (write-string interface (str line "\n")))
+
 (defn close-interface [iface]
   "Close the serial interface."
   (serial/close iface))
