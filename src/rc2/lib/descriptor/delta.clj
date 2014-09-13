@@ -8,13 +8,14 @@
 (declare reachable? find-angles)
 
 ;; Descriptors for delta-style robots.
-(s/defrecord DeltaPose [angles :- {s/Keyword s/Num}]
+(s/defrecord DeltaPose [angles :- {s/Keyword s/Num} position :- {s/Keyword s/Num}]
   robot/RobotPose
-  (joint-angles [pose] (:angles pose)))
+  (joint-angles [pose] (:angles pose))
+  (position [pose] (:position pose)))
 
 (s/defrecord DeltaDescriptor [upper :- s/Num lower :- s/Num effector :- s/Num base :- s/Num]
   robot/RobotDescriptor
-  (find-pose [descriptor position] (->DeltaPose (find-angles descriptor position)))
+  (find-pose [descriptor position] (->DeltaPose (find-angles descriptor position) position))
   (reachable? [descriptor position] (reachable? descriptor position)))
 
 (def zero 0)

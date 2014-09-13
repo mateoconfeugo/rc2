@@ -66,8 +66,8 @@
 (describe
  "joint-angles"
  (it "joint-angles should return the joint angles as a map"
-     {:a 1 :b 2 :c 3} (robot/joint-angles (delta/->DeltaPose {:a 1 :b 2 :c 3}))
-     (should= {:a 3 :b 2 :c 1} (robot/joint-angles (delta/->DeltaPose {:a 3 :b 2 :c 1})))))
+     {:a 1 :b 2 :c 3} (robot/joint-angles (delta/->DeltaPose {:a 1 :b 2 :c 3} {}))
+     (should= {:a 3 :b 2 :c 1} (robot/joint-angles (delta/->DeltaPose {:a 3 :b 2 :c 1} {})))))
 
 (describe
  "find-pose"
@@ -75,11 +75,11 @@
       (should (let [angle (/ math/pi 4)
                     z-val (- (* (+ upper lower) (math/sin angle)))]
                 (pose-within? angle-tolerance
-                              (delta/->DeltaPose {:a (- angle) :b (- angle) :c (- angle)})
+                              (delta/->DeltaPose {:a (- angle) :b (- angle) :c (- angle)} {})
                               (robot/find-pose test-descriptor (pos/->vec 0 0 z-val))))))
  (it "when positioned directly under arm A, B & C should be vertical"
      (should (let [angle (- (/ math/pi 2))]
-               (pose-within? angle-tolerance (delta/->DeltaPose {:a 0 :b angle :c angle})
+               (pose-within? angle-tolerance (delta/->DeltaPose {:a 0 :b angle :c angle} {})
                              (robot/find-pose test-descriptor (pos/->vec 10 0 -10)))))))
 
 (run-specs)

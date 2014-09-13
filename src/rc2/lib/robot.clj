@@ -16,7 +16,8 @@
 ;; This protocol defines pose manipulation/access functions.
 (defprotocol RobotPose
   "Interface functions for robot poses."
-  (joint-angles [pose] "Get the joint angles for the pose as a map from servo to angle."))
+  (joint-angles [pose] "Get the joint angles for the pose as a map from servo to angle.")
+  (position [pose] "Get the cartesian coordinates for the pose."))
 
 ;; This protocol is intended to be used by functions which implement interfaces
 ;; to the actual device. These could be hardware or software interfaces; when
