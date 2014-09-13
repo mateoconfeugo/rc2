@@ -16,7 +16,7 @@
                  [org.clojure/core.async "0.1.0-SNAPSHOT"]
                  [org.clojure/math.combinatorics "0.0.7"]
                  [org.clojure/math.numeric-tower "0.0.2"]
-                 [org.clojure/tools.cli "0.2.4"]
+                 [org.clojure/tools.cli "0.3.1"]
                  [prismatic/dommy "0.1.2"]
                  [prismatic/schema "0.2.4"]
                  [ring/ring-core "1.2.1"]

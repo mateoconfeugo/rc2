@@ -1,5 +1,5 @@
 (ns rc2.lib.driver.gcode
-  (:use [rc2.lib.driver.serial-util :only [write-array write-vals encode-array close-interface]])
+  (:use [rc2.lib.driver.serial-util :only [write-line close-interface]])
   (:require [rc2.lib.robot :as robot]
             [gloss.core :as gloss]))
 
@@ -9,9 +9,9 @@
   (str "G1 X" (:x position) " Y" (:y position) " Z" (:z position)))
 
 (defn set-velocities! [interface velocities]
-  (write-line interface (str "M203 X" (:x accelerations)
-                             " Y" (:y accelerations)
-                             " Z" (:z accelerations))))
+  (write-line interface (str "M203 X" (:x velocities)
+                             " Y" (:y velocities)
+                             " Z" (:z velocities))))
 
 (defn set-accelerations! [interface accelerations]
   (write-line interface (str "M201 X" (:x accelerations)
@@ -29,7 +29,8 @@
     (write-line interface "G28"))
   (shut-down! [interface]
     ;; Sleep
-    (write-line interface "M1"))
+    (write-line interface "M1")
+    (close-interface interface))
   (take-pose! [interface pose]
     (let [position (:position pose)]
      (write-line interface (controlled-move position))))
