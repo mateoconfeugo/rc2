@@ -11,7 +11,9 @@
 (s/defrecord DeltaPose [angles :- {s/Keyword s/Num} position :- {s/Keyword s/Num}]
   robot/RobotPose
   (joint-angles [pose] (:angles pose))
-  (position [pose] (:position pose)))
+  (position [pose] (:position pose))
+  Object
+  (toString [pose] (str "{:angles " (:angles pose) " :position " (:position pose) "}")))
 
 (s/defrecord DeltaDescriptor [upper :- s/Num lower :- s/Num effector :- s/Num base :- s/Num]
   robot/RobotDescriptor

@@ -1,6 +1,7 @@
 ;; Config file for RC2.
 {
- :driver :gcode
+ :driver :fake ;; :gcode
+ :output "output.txt"
  :descriptor :delta
  :max-velocity 400 ;; mm/s
  :max-accel 1000   ;; mm/s^2

@@ -7,22 +7,25 @@
            [rc2.lib.descriptor.delta :as delta]
            [rc2.lib.driver.pololu :as pol]
            [rc2.lib.driver.gcode :as gcode]
+           [rc2.lib.driver.fake :as fake]
+           [rc2.web.settings :as settings]
            [rc2.web.server.api :as api]
-           [rc2.web.server.task :as task]
            [rc2.web.server.handler :as handler]
+           [rc2.web.server.task :as task]
            [clojure.tools.cli :as cli])
   (:gen-class))
 
 (def ConfigFile
   "Schema for the RC2 config file"
   {
-   :driver s/Keyword
-   :descriptor s/Keyword
-   :max-velocity s/Num
-   :max-accel s/Num
-   :http-port s/Int
-   :serial-port s/Str
    :calibration s/Keyword
+   :descriptor s/Keyword
+   :driver s/Keyword
+   :http-port s/Int
+   :max-accel s/Num
+   :max-velocity s/Num
+   :serial-port s/Str
+   (s/optional-key :output) s/Str
    })
 
 (defn parse-args [args]
@@ -53,6 +56,7 @@
                  :b pol/default-calibration
                  :c pol/default-calibration}
         :gcode {}
+        :fake {}
         (throw (IllegalArgumentException. (str "No default calibration for driver " driver))))
       (if (nil? calibration)
         (throw (IllegalArgumentException. "No calibration data provided!"))
@@ -63,17 +67,27 @@
     (condp = driver
       :pololu (pol/->PololuInterface serial-port calibration)
       :gcode (gcode/->GcodeInterface serial-port calibration)
+      :fake (fake/->FakeInterface (:output config))
       (throw (IllegalArgumentException. (str "Unrecognized driver type " driver))))))
 
 (defn connect-serial [config]
   "Connect the serial port."
-  (println "Connecting to serial: " (:serial-port config))
-  (serial/open (:serial-port config)))
+  (let [port (:serial-port config)]
+    (println "Connecting to serial: " port)
+    (if (= "none" port)
+      (println "Skipping serial connection.")
+      (serial/open port))))
 
 (defn connect [config]
   (let [calibration (get-calibration config)
         serial-port (connect-serial config)
-        driver (get-driver config serial-port calibration)]
+        driver (get-driver config serial-port calibration)
+        max-velocity (:max-velocity config)
+        max-accel (:max-accel config)]
+    (rbt/initialize! driver)
+    (rbt/set-parameters! driver
+                         {:velocity {:a max-velocity :b max-velocity :c max-velocity}
+                          :acceleration {:a max-accel :b max-accel :c max-accel}})
     {:interface driver
      :serial serial-port}))
 
@@ -81,16 +95,10 @@
   (println "Starting up.")
   (let [config (parse-args args)
         descriptor (get-descriptor config)
-        connection (if (= (:serial-port config) "none")
-                     (do (println "Skipping serial connection.") nil)
-                     (connect config))
-        max-velocity (:max-velocity config)
-        max-accel (:max-accel config)]
-    (when-let [interface (:interface connection)]
-      (rbt/initialize! interface)
-      (rbt/set-parameters! interface
-                           {:velocity {:a max-velocity :b max-velocity :c max-velocity}
-                            :acceleration {:a max-accel :b max-accel :c max-accel}}))
+        connection (connect config)]
+    (settings/set-config! config)
+    (settings/change-setting! :connection connection)
+    (settings/change-setting! :descriptor descriptor)
     (println "Initializing task system")
     (task/init-workers! 5)
     (handler/attach-handlers!)
