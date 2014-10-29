@@ -244,10 +244,10 @@
        :else route)
       route)))
 
-(defn highlight-waypoints [mouse waypoints]
-  (let [mouse (util/canvas->world mouse)]
+(defn highlight-waypoints [canvas mouse waypoints]
+  (let [mouse (util/canvas->world canvas mouse)]
     (map (fn [wp]
-           (assoc wp :highlight (< (util/distance (:location wp) mouse)
+           (assoc wp :highlight (< (util/distance canvas (:location wp) mouse)
                                    (+ draw/waypoint-radius 10))))
          waypoints)))
 
@@ -260,18 +260,18 @@
              [id (assoc btn :visible is-visible)]))
          buttons)))
 
-(defn in-button? [btns btn pos]
-  (let [{:keys [coord width height]} (draw/button-render-details btns btn)
-        {bx :x by :y} (util/canvas->world coord)
-        {:keys [x y]} (util/canvas->world pos)]
+(defn in-button? [canvas btns btn pos]
+  (let [{:keys [coord width height]} (draw/button-render-details canvas btns btn)
+        {bx :x by :y} (util/canvas->world canvas coord)
+        {:keys [x y]} (util/canvas->world canvas pos)]
     (if (:visible btn)
         (and (< bx x (+ bx width))
              (< (- by height) y by))
         false)))
 
-(defn update-button-hover [mouse-pos buttons]
+(defn update-button-hover [canvas mouse-pos buttons]
   (into {} (map (fn [[k btn]]
-                  [k (assoc btn :hover (in-button? (vals buttons) btn mouse-pos))])
+                  [k (assoc btn :hover (in-button? canvas (vals buttons) btn mouse-pos))])
                 buttons)))
 
 (defn update-button-click [mouse buttons]
@@ -349,18 +349,22 @@
   (let [loc->wp (into {} (map (fn [wp] [(:location wp) wp]) waypoints))]
     (map (partial get loc->wp) (map #(:location %) plan))))
 
-(defn update-plan-animation [plan anim-state]
+(defn update-plan-animation [canvas plan anim-state]
   (if (not (empty? plan))
     (let [last-point (:location (nth plan (:index anim-state)))
           next-point (:location (nth plan (+ 1 (:index anim-state))))
           current-offsets (:offsets anim-state)
-          current-location (util/coord+ current-offsets last-point)
+          current-location (util/coord+ canvas current-offsets last-point)
           next-offsets (util/coord+
+                        canvas
                         current-offsets
-                        (util/scale-to (util/coord- next-point last-point) animation-step-distance))
-          next-location (util/coord+ next-offsets last-point)
-          past-next (< (util/distance last-point next-point)
-                       (util/distance last-point next-location))]
+                        (util/scale-to
+                         canvas
+                         (util/coord- canvas next-point last-point)
+                         animation-step-distance))
+          next-location (util/coord+ canvas next-offsets last-point)
+          past-next (< (util/distance canvas last-point next-point)
+                       (util/distance canvas last-point next-location))]
       (if (not past-next)
         (assoc anim-state :offsets next-offsets)
         (assoc anim-state
@@ -384,7 +388,7 @@
      [:mode :secondary] []] [] handle-mode-keys]
    [[[:keyboard :pressed] [:parts] [:mode :primary]] [:parts] handle-part-keys]
    [[[] [:ui :buttons]] [:ui :buttons] update-button-visibilities]
-   [[[:mouse :location] [:ui :buttons]] [:ui :buttons] update-button-hover]
+   [[[:canvas] [:mouse :location] [:ui :buttons]] [:ui :buttons] update-button-hover]
    [[[:mouse] [:ui :buttons]] [:ui :buttons] update-button-click]
    [[[:ui :buttons] []] [] handle-button-actions]
    [[[:mouse]
@@ -393,9 +397,9 @@
      [:mode :secondary]
      [:parts]
      [:route]] [:route] handle-waypoint-updates]
-   [[[:mouse :location] [:route :waypoints]] [:route :waypoints] highlight-waypoints]
+   [[[:canvas] [:mouse :location] [:route :waypoints]] [:route :waypoints] highlight-waypoints]
    [[[:route :waypoints] [:route :plan]] [:route :plan] update-plan-annotations]
-   [[[:route :plan] [:route :animation]] [:route :animation] update-plan-animation]
+   [[[:canvas] [:route :plan] [:route :animation]] [:route :animation] update-plan-animation]
    [[[:mouse :buttons] [:mouse :previous-buttons]] [:mouse :previous-buttons] copy]
    [[[:keyboard :pressed] [:keyboard :previous-pressed]] [:keyboard :previous-pressed] copy]
    ])
@@ -405,13 +409,15 @@
   (swap! app-state apply-state-transforms pre-draw-transforms))
 
 (defn on-event! []
+  ;; TODO This should not be reading canvas from app state. Perhaps this callback should be curried?
   (on-state-change!))
 
 (defn on-mouse-move! [event]
   "Handle mouse movement events."
   (.preventDefault event)
-  (swap! app-state update-in [:mouse :location]
-         (fn [m] (util/canvas->world (util/->canvas (.-clientX event) (.-clientY event)))))
+  (let [canvas (:canvas @app-state)]
+    (swap! app-state update-in [:mouse :location]
+           (fn [m] (util/canvas->world canvas (util/->canvas (.-clientX event) (.-clientY event))))))
   (on-event!))
 
 (defn on-mouse-down! [event]
@@ -441,7 +447,7 @@
 (defn on-resize! [event]
   "Handle resize events."
   (.preventDefault event)
-  (draw/size-canvas-to-window!)
+  (draw/fix-canvas-size!)
   (on-event!))
 
 (defn annotate-plan [waypoints plan]
@@ -590,10 +596,11 @@
   (do-periodically task-update-interval [:tasks :last-poll] check-tasks!)
   (do-periodically position-update-interval [:robot :last-poll] check-position!))
 
-(defn attach-handlers []
-  (set! (.-onmousemove (util/get-canvas)) on-mouse-move!)
-  (set! (.-onmouseup (util/get-canvas)) on-mouse-up!)
-  (set! (.-onmousedown (util/get-canvas)) on-mouse-down!)
-  (set! (.-onkeydown (util/get-body)) on-key-down!)
-  (set! (.-onkeyup (util/get-body)) on-key-up!)
+(defn attach-handlers [body canvas]
+  (swap! app-state assoc :canvas canvas)
+  (set! (.-onmousemove canvas) on-mouse-move!)
+  (set! (.-onmouseup canvas) on-mouse-up!)
+  (set! (.-onmousedown canvas) on-mouse-down!)
+  (set! (.-onkeydown body) on-key-down!)
+  (set! (.-onkeyup body) on-key-up!)
   (set! (.-onresize js/window) on-resize!))
