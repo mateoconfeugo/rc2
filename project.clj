@@ -52,6 +52,9 @@
                                  :compiler {:output-to "resources/public/js/rc2.js"
                                             :optimizations :whitespace
                                             :pretty-print true}
+                                 :notify-command ["/usr/local/bin/terminal-notifier"
+                                                  "-message" "CLJS Build Complete"
+                                                  "-title" "Leiningen"]
                                  :jar true}
                        :test {:source-paths ["src-cljs" "test-cljs"]
                               :compiler {:output-to "target/unit-test.js"
