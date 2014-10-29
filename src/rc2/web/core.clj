@@ -1,18 +1,18 @@
 (ns rc2.web.core
   (:require [serial-port :as serial]
-           [schema.core :as s]
-           [rc2.lib
-            [math :as math]
-            [robot :as rbt]]
-           [rc2.lib.descriptor.delta :as delta]
-           [rc2.lib.driver.pololu :as pol]
-           [rc2.lib.driver.gcode :as gcode]
-           [rc2.lib.driver.fake :as fake]
-           [rc2.web.settings :as settings]
-           [rc2.web.server.api :as api]
-           [rc2.web.server.handler :as handler]
-           [rc2.web.server.task :as task]
-           [clojure.tools.cli :as cli])
+            [schema.core :as s]
+            [rc2.lib
+             [math :as math]
+             [robot :as rbt]]
+            [rc2.lib.descriptor.delta :as delta]
+            [rc2.lib.driver.pololu :as pol]
+            [rc2.lib.driver.gcode :as gcode]
+            [rc2.lib.driver.fake :as fake]
+            [rc2.web.settings :as settings]
+            [rc2.web.server.api :as api]
+            [rc2.web.server.handler :as handler]
+            [rc2.web.server.task :as task]
+            [clojure.tools.cli :as cli])
   (:gen-class))
 
 (def ConfigFile

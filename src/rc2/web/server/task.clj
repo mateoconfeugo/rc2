@@ -37,6 +37,8 @@
                                 :affinity affinity})
   (println "Registered task type" type))
 
+;; TODO Add Emergency Stop functionality
+
 ;; This function is intended to be used only within this module. It is public only for unit testing.
 (defn do-task! [task handlers]
   "Performs a task and returns the state updates which should be applied to it."
