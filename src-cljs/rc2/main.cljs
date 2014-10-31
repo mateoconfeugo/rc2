@@ -11,7 +11,7 @@
   "Handle timer ticks by triggering redraw of the application."
   (state/update-periodic-tasks!)
   (let [canvas (sel1 :#target)]
-   (draw/draw canvas (state/on-state-change! canvas))))
+   (draw/draw canvas (state/on-state-change!))))
 
 (defn main []
   (api/get-meta (fn [data] (.log js/console "API server uptime:" (get data "uptime")))

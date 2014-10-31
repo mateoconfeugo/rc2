@@ -37,11 +37,7 @@
 
 (defn world->canvas [canvas {:keys [x y z type] :as coord}]
   "Convert world coordinates to canvas coordinates."
-  (try
-    (s/validate Coordinate coord)
-    (catch js/Object e
-      (.log js/console e "For coordinate" (str coord))
-      (throw e)))
+  (s/validate Coordinate coord)
   (if (keyword-identical? :world type)
     (->canvas (+ x (/ (.-width canvas) 2))
               (+ (- y) (/ (.-height canvas) 2))
@@ -50,11 +46,7 @@
 
 (defn canvas->world [canvas {:keys [x y z type] :as coord}]
   "Convert canvas coordinates to world coordinates."
-  (try
-    (s/validate Coordinate coord)
-    (catch js/Object e
-      (.log js/console e "For coordinate" (str coord))
-      (throw e)))
+  (s/validate Coordinate coord)
   (if (keyword-identical? :canvas type)
     (->world (- x (/ (.-width canvas) 2))
              (- (- y (/ (.-height canvas) 2)))
@@ -87,7 +79,7 @@
     {:x (- x1 x2) :y (- y1 y2) :z (- z1 z2) :type (:type c1)}))
 
 (defn distance
-  ([canvas c1] (distance origin c1))
+  ([canvas c1] (distance canvas origin c1))
   ([canvas c1 c2]
      (let [{x1 :x y1 :y z1 :z} c1
            {x2 :x y2 :y z2 :z} (coerce-coord canvas c1 c2)

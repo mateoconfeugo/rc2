@@ -444,10 +444,10 @@
   (swap! app-state update-in [:keyboard :pressed] disj (.fromCharCode js/String (.-keyCode event)))
   (on-event!))
 
-(defn on-resize! [event]
+(defn on-resize! [canvas event]
   "Handle resize events."
   (.preventDefault event)
-  (draw/fix-canvas-size!)
+  (draw/fix-canvas-size! canvas)
   (on-event!))
 
 (defn annotate-plan [waypoints plan]
@@ -603,4 +603,4 @@
   (set! (.-onmousedown canvas) on-mouse-down!)
   (set! (.-onkeydown body) on-key-down!)
   (set! (.-onkeyup body) on-key-up!)
-  (set! (.-onresize js/window) on-resize!))
+  (set! (.-onresize js/window) (partial on-resize! canvas)))

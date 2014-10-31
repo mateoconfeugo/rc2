@@ -60,19 +60,19 @@
      (let [plan [{:location (util/->world 1 2 0)} {:location (util/->world 1 7 0)}]
            anim-state state/default-animation-state]
        (should= (assoc anim-state :offsets (util/->world 0 5))
-                (state/update-plan-animation plan anim-state))))
+                (state/update-plan-animation nil plan anim-state))))
  (it "continues by a single step in the direction of the current path vector"
      (let [plan [{:location (util/->world 1 2 0)} {:location (util/->world 1 12 0)}]
            anim-state (assoc state/default-animation-state :offsets (util/->world 0 5))]
        (should= (assoc anim-state :offsets (util/->world 0 10))
-                (state/update-plan-animation plan anim-state))))
+                (state/update-plan-animation nil plan anim-state))))
  (it "moves to the next path segment once it oversteps"
      (let [plan [{:location (util/->world 0 0 0)}
                  {:location (util/->world 0 7 0)}
                  {:location (util/->world 0 15 0)}]
            anim-state (assoc state/default-animation-state :offsets (util/->world 0 5))]
        (should= (assoc anim-state :offsets util/origin :index 1)
-                (state/update-plan-animation plan anim-state))))
+                (state/update-plan-animation nil plan anim-state))))
  (it "moves to the first path segment once it completes the route"
      (let [plan [{:location (util/->world 0 0 0)}
                  {:location (util/->world 0 7 0)}
@@ -80,4 +80,4 @@
            anim-state (assoc state/default-animation-state
                         :offsets (util/->world 0 5) :index 1)]
        (should= (assoc anim-state :offsets util/origin :index 0)
-                (state/update-plan-animation plan anim-state)))))
+                (state/update-plan-animation nil plan anim-state)))))
