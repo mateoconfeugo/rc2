@@ -17,9 +17,13 @@
 (defn fix-canvas-size! [canvas]
   "Set the internal canvas size properties so that it matches its on-screen size."
   (let [window-width (.-offsetWidth canvas)
-        window-height (.-offsetHeight canvas)]
+        window-height (.-offsetHeight canvas)
+        context (util/get-context canvas)]
     (set! (.-width canvas) window-width)
-    (set! (.-height canvas) window-height)))
+    (set! (.-height canvas) window-height)
+    ;; Do a half pixel translate to alleviate bluriness
+    ;; https://stackoverflow.com/questions/8696631/canvas-drawings-are-blurry
+    (.translate context 0.5 0.5)))
 
 ;;;;;;;;;;;;
 ;; Drawing
@@ -168,24 +172,6 @@
               (draw-text context (util/->canvas x (+ y (* 20 i))) (str kv) dark-color))
             state))))
 
-(defn draw-section [canvas & {:keys [title coord items xform]
-                       :or {xform identity}}]
-  "Draw a section of text on the screen containing the given items.
-
-A section consists of a title followed by each item in items. If there is not enough space to draw
-all of the items, items from the end of the list will be preferred." ;; Scrolling?
-  (let [context (util/get-context canvas)
-        {:keys [x y]} (util/world->canvas canvas coord)
-        width 300]
-    (draw-text context (util/->canvas (+ x 2) y) title default-color :size 14)
-    (draw-line context
-               (util/->canvas x (+ y 3))
-               (util/->canvas (+ x width) (+ y 3))
-               default-color)
-    (doseq [[item offset] (map list items (iterate (fn [offset] (+ offset 18)) 22))]
-      (draw-text context (util/->canvas x (+ y offset)) (str (xform item))
-                 (if (:highlight item) highlight-color default-color)))))
-
 (defn get-waypoint-text [parts current [idx wp]]
   (let [kind (if (= :source (:kind wp)) "SOURCE " "SINK   ")
         coord (util/pp-coord (:location wp))
@@ -224,20 +210,6 @@ all of the items, items from the end of the list will be preferred." ;; Scrollin
   (let [context (util/get-context canvas)]
     (draw-circle context position animation-radius default-color)))
 
-(defn draw-plan [canvas plan parts current]
-  (draw-section canvas
-                :title "PLAN"
-                :coord (util/->canvas (- (.-width canvas) 250 80) 30)
-                :items (indexed plan)
-                :xform (partial get-waypoint-text parts current)))
-
-(defn draw-part-list [canvas parts]
-  (draw-section canvas
-                :title "PARTS"
-                :coord (util/->canvas 30 (+ 30 (/ (.-height canvas) 2)))
-                :items (sort-by :id (map (fn [[id part]] (assoc part :id id)) parts))
-                :xform (fn [part] (str (:id part) ": " (:name part)))))
-
 (defn draw [canvas state]
   (fix-canvas-size! canvas)
   (clear-canvas! canvas)
@@ -251,13 +223,8 @@ all of the items, items from the end of the list will be preferred." ;; Scrollin
   (draw-mode-info canvas (get state :mode))
   (draw-state-info canvas state)
   (draw-plan-segments canvas (get-in state [:route :plan]))
-  (draw-plan canvas
-             (get-in state [:route :plan])
-             (get state :parts)
-             (get-in state [:route :execution :current]))
   (draw-waypoints canvas (get-in state [:route :waypoints]))
   (if (not (= :execute (.-keyword (get-in state [:mode :primary]))))
     (draw-plan-animation canvas (get-in state [:route :plan]) (get-in state [:route :animation]))
     (draw-actuator-position canvas (get-in state [:robot :position])))
-  (draw-part-list canvas (get state :parts))
   )

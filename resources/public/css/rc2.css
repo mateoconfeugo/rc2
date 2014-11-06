@@ -35,9 +35,24 @@ ul {
     text-decoration: underline;
 }
 
+.highlight {
+    color: #FAC1B1;
+}
+
 #waypoint-list {
     top: 30px;
     left: 30px;
+}
+
+#part-list {
+    bottom: 240px;
+    left: 30px;
+}
+
+#plan-list {
+    top: 30px;
+    right: 50px;
+    width: 250px;
 }
 
 /* default-color #C9EAF9 */

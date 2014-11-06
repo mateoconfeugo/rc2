@@ -375,7 +375,7 @@
 
 (def pre-draw-transforms
   [
-;   [[] [:time] util/current-time]
+  [[] [:time] util/current-time]
    [[[:keyboard :pressed]
      [:keyboard :previous-pressed]
      [:mode :primary]

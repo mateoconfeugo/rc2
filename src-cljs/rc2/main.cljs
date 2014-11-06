@@ -31,10 +31,18 @@
 
 (defn ui-elements []
   (let [app-state @state/app-state]
-   [section "waypoint-list" "WAYPOINTS"
-    (draw/indexed (get-in app-state [:route :waypoints]))
-    (partial draw/get-waypoint-text (get app-state :parts)
-             (get-in app-state [:route :execution :current]))]))
+    [:div
+     [section "waypoint-list" "WAYPOINTS"
+           (draw/indexed (get-in app-state [:route :waypoints]))
+           (partial draw/get-waypoint-text (get app-state :parts)
+                    (get-in app-state [:route :execution :current]))]
+     [section "part-list" "PARTS"
+      (sort-by :id (map (fn [[id part]] (assoc part :id id)) (get app-state :parts)))
+      (fn [part] (str (:id part) ": " (:name part)))]
+     [section "plan-list" "PLAN"
+      (draw/indexed (get-in app-state [:route :plan]))
+      (partial draw/get-waypoint-text (get app-state :parts)
+               (get-in app-state [:route :execution :current]))]]))
 
 (defn main []
   (api/get-meta (fn [data] (.log js/console "API server uptime:" (get data "uptime")))
