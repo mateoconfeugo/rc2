@@ -192,11 +192,7 @@ all of the items, items from the end of the list will be preferred." ;; Scrollin
         part (:name (get parts (:part-id wp)))]
    (str (if (not (= current idx)) "   " "-> ") kind coord ": " part)))
 
-(defn draw-waypoints [canvas waypoints parts current]
-  (draw-section canvas
-                :title "WAYPOINTS" :coord (util/->canvas 30 30)
-                :items (indexed waypoints)
-                :xform (partial get-waypoint-text parts current))
+(defn draw-waypoints [canvas waypoints]
   (let [context (util/get-context canvas)]
     (doseq [wp waypoints]
       (let [loc (:location wp)
@@ -259,9 +255,7 @@ all of the items, items from the end of the list will be preferred." ;; Scrollin
              (get-in state [:route :plan])
              (get state :parts)
              (get-in state [:route :execution :current]))
-  (draw-waypoints canvas (get-in state [:route :waypoints])
-                  (get state :parts)
-                  (get-in state [:route :execution :current]))
+  (draw-waypoints canvas (get-in state [:route :waypoints]))
   (if (not (= :execute (.-keyword (get-in state [:mode :primary]))))
     (draw-plan-animation canvas (get-in state [:route :plan]) (get-in state [:route :animation]))
     (draw-actuator-position canvas (get-in state [:robot :position])))
