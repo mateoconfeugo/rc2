@@ -1,5 +1,6 @@
 (ns rc2.state
-  (:require [rc2.api :as api]
+  (:require [reagent.core :as reagent :refer [atom]]
+            [rc2.api :as api]
             [rc2.draw :as draw]
             [rc2.util :as util]
             [clojure.set :as set]))
@@ -374,7 +375,7 @@
 
 (def pre-draw-transforms
   [
-   [[] [:time] util/current-time]
+;   [[] [:time] util/current-time]
    [[[:keyboard :pressed]
      [:keyboard :previous-pressed]
      [:mode :primary]
@@ -409,7 +410,6 @@
   (swap! app-state apply-state-transforms pre-draw-transforms))
 
 (defn on-event! []
-  ;; TODO This should not be reading canvas from app state. Perhaps this callback should be curried?
   (on-state-change!))
 
 (defn on-mouse-move! [event]

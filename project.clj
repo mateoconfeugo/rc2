@@ -19,6 +19,7 @@
                  [org.clojure/tools.cli "0.3.1"]
                  [prismatic/dommy "0.1.2"]
                  [prismatic/schema "0.2.4"]
+                 [reagent "0.4.3"]
                  [ring/ring-core "1.2.1"]
                  [ring/ring-devel "1.1.0"]
                  [ring/ring-json "0.2.0"]
@@ -51,6 +52,7 @@
               :builds {:release {:source-paths ["src-cljs"]
                                  :compiler {:output-to "resources/public/js/rc2.js"
                                             :optimizations :whitespace
+                                            :preamble ^:replace ["reagent/react.min.js"]
                                             :pretty-print true}
                                  :notify-command ["/usr/local/bin/terminal-notifier"
                                                   "-message" "CLJS Build Complete"
