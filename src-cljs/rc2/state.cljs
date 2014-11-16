@@ -261,28 +261,6 @@
              [id (assoc btn :visible is-visible)]))
          buttons)))
 
-(defn in-button? [canvas btns btn pos]
-  (let [{:keys [coord width height]} (draw/button-render-details canvas btns btn)
-        {bx :x by :y} (util/canvas->world canvas coord)
-        {:keys [x y]} (util/canvas->world canvas pos)]
-    (if (:visible btn)
-        (and (< bx x (+ bx width))
-             (< (- by height) y by))
-        false)))
-
-(defn update-button-hover [canvas mouse-pos buttons]
-  (into {} (map (fn [[k btn]]
-                  [k (assoc btn :hover (in-button? canvas (vals buttons) btn mouse-pos))])
-                buttons)))
-
-(defn update-button-click [mouse buttons]
-  "Update the clicked state of UI buttons."
-  (into {} (map (fn [[k btn]]
-                  (when (and (clicked? mouse 0) (:hover btn))
-                      (.log js/console (:text btn) "clicked"))
-                  [k (assoc btn :click (and (clicked? mouse 0) (:hover btn)))])
-                buttons)))
-
 (defn handle-button-actions [buttons state]
   "Perform the on-click actions of the clicked UI buttons."
   (let [buttons (vals buttons)
@@ -389,8 +367,6 @@
      [:mode :secondary] []] [] handle-mode-keys]
    [[[:keyboard :pressed] [:parts] [:mode :primary]] [:parts] handle-part-keys]
    [[[] [:ui :buttons]] [:ui :buttons] update-button-visibilities]
-   [[[:canvas] [:mouse :location] [:ui :buttons]] [:ui :buttons] update-button-hover]
-   [[[:mouse] [:ui :buttons]] [:ui :buttons] update-button-click]
    [[[:ui :buttons] []] [] handle-button-actions]
    [[[:mouse]
      [:ui :buttons]
@@ -448,6 +424,11 @@
   "Handle resize events."
   (.preventDefault event)
   (draw/fix-canvas-size! canvas)
+  (on-event!))
+
+(defn on-button-click! [button-id event]
+  (let [click-state (= :down event)]
+    (swap! app-state assoc-in [:ui :buttons button-id :click] click-state))
   (on-event!))
 
 (defn annotate-plan [waypoints plan]

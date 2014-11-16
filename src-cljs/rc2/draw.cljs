@@ -89,32 +89,6 @@
 
 (defn indexed [seq] (map-indexed vector seq))
 
-(defn index-of [elt seq]
-  (first (first (filter #(= elt (second %)) (indexed seq)))))
-
-(defn button-render-details [canvas buttons button]
-  (let [buttons (filter :visible buttons)
-        section-width (* (count buttons) (+ button-size 10))
-        index (index-of button buttons)
-        offset (util/->world (- (+ (* (+ button-size 10) index) 5) (/ section-width 2)) 50)]
-    {:coord (util/coord+ canvas offset (util/world-edge canvas :bottom))
-     :width button-size :height 20}))
-
-(defn draw-buttons [canvas buttons]
-  (doseq [button (filter :visible buttons)]
-    (let [{:keys [coord width height]} (button-render-details canvas buttons button)
-          context (util/get-context canvas)
-          color (if (:hover button)
-                  highlight-color
-                  default-color)]
-      (draw-rect context coord width height color)
-      (draw-text context (util/coord+ canvas coord (util/->world 10 -12))
-                 (:text button) color))))
-
-(defn draw-ui-elements [canvas elts]
-  (let [{:keys [buttons]} elts]
-    (draw-buttons canvas (vals buttons))))
-
 (defn mode-color [mode]
   (let [primary (.-keyword (:primary mode))
         secondary (.-keyword (:secondary mode))]
@@ -216,7 +190,6 @@
   (draw-grid canvas)
   (draw-crosshairs canvas util/origin dark-color)
   (draw-crosshairs canvas (get-in state [:mouse :location]))
-  (draw-ui-elements canvas (get state :ui))
   (draw-coordinates canvas (get state :mode) (get-in state [:mouse :location]))
   (draw-current-part canvas (get state :mode) (get-in state [:mouse :location]) (get state :parts))
   (draw-connection-info canvas (get state :connection) (get state :time))
