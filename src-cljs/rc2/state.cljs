@@ -104,6 +104,7 @@
 
 (def app-state
   (atom {
+         :current-page :home
          :mouse {:location util/origin
                  :buttons {0 :up 1 :up 2 :up}
                  :previous-buttons {0 :up 1 :up 2 :up}}
@@ -188,6 +189,12 @@
          :connection {:last-heartbeat 0 :connected false}
          :time 0
          }))
+
+(defn global-put! [k v]
+  (swap! app-state assoc k v))
+
+(defn global-state [k]
+  (get @app-state k))
 
 ;;;;;;;;;;
 ;; State

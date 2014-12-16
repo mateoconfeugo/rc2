@@ -41,12 +41,12 @@
   "HTML5 canvas element which serves as a draw target for the route visualization."
   (let [canvas (sel1 :#target)]
     (draw/draw canvas @state/app-state))
-  [:div "[placeholder]"])
+  [:div {:hidden true} "[placeholder]"])
 
 (defn ui-elements []
   "Top-level RC2 UI element."
   (let [app-state @state/app-state]
-    [:div
+    [:div.ui-element
      [section "waypoint-list" "WAYPOINTS"
       (draw/indexed (get-in app-state [:route :waypoints]))
       (partial draw/get-waypoint-text (get app-state :parts)

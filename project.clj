@@ -23,6 +23,7 @@
                  [ring/ring-core "1.2.1"]
                  [ring/ring-devel "1.1.0"]
                  [ring/ring-json "0.2.0"]
+                 [secretary "1.2.1"]
                  [serial-port "1.1.2"]
                  [speclj "2.9.1"]
                  [specljs "2.9.1"]
@@ -52,7 +53,7 @@
               :builds {:release {:source-paths ["src-cljs"]
                                  :compiler {:output-to "resources/public/js/rc2.js"
                                             :optimizations :whitespace
-                                            :preamble ^:replace ["reagent/react.min.js"]
+                                            :preamble ^:replace ["reagent/react.js"]
                                             :pretty-print true}
                                  :notify-command ["/usr/local/bin/terminal-notifier"
                                                   "-message" "CLJS Build Complete"
