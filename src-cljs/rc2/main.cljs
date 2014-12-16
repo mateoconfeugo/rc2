@@ -13,6 +13,17 @@
   (state/update-periodic-tasks!)
   (state/on-state-change!))
 
+(defn label
+  ([id text] (label id text ""))
+  ([id text classes]
+     [:div.label {:id id :class classes} text]))
+
+(defn lighter [{:keys [primary secondary]}]
+  (let [primary-text (.-lighter primary)
+        secondary-text (.-lighter secondary)
+        text (str secondary-text " " primary-text " MODE")]
+    [label "lighter" text]))
+
 (defn visualizer []
   (let [canvas (sel1 :#target)]
     (draw/draw canvas @state/app-state))
@@ -52,7 +63,12 @@
                                                     (when-let [pred (:visible-when btn)]
                                                               (pred app-state)))
                                                   (get-in app-state [:ui :buttons]))]
-                          [main-button id (:text button)])]]))
+                          [main-button id (:text button)])]
+     [lighter (:mode app-state)]
+     [label "connection"
+      (if (:connected (:connection app-state)) "CONNECTED" "OFFLINE")
+      (if (:connected (:connection app-state)) "normal" "error")]
+     [label "time" (str (:time app-state))]]))
 
 (defn main []
   (api/get-meta (fn [data] (.log js/console "API server uptime:" (get data "uptime")))

@@ -117,26 +117,6 @@
                             coord)
                part-name (mode-color mode))))
 
-(defn draw-mode-info [canvas {:keys [primary secondary]}]
-  (let [context (util/get-context canvas)
-        primary-text (.-lighter primary)
-        secondary-text (.-lighter secondary)
-        text (str secondary-text " " primary-text " MODE")
-        x-off (- (/ (:width (text-size context text :size 14)) 2))
-        y-off 60
-        coord (util/coord+ canvas (util/world-edge canvas :bottom) (util/->world x-off y-off))]
-    (draw-text context coord text default-color :size 14)))
-
-(defn draw-connection-info [canvas connection time]
-  (let [context (util/get-context canvas)
-        text (if (:connected connection) "CONNECTED" "OFFLINE")
-        x (- (.-width canvas) (:width (text-size context text :size 14)) 30)
-        y (- (.-height canvas) 60)]
-    (draw-text context (util/->canvas x y) text
-               (if (:connected connection) default-color error-color) :size 14)
-    (draw-text context (util/->canvas (- x 72) (+ 30 y))
-               (str "TIME " time) default-color :size 14)))
-
 (defn draw-state-info [canvas state]
   (let [context (util/get-context canvas)
         x 230
@@ -192,12 +172,9 @@
   (draw-crosshairs canvas (get-in state [:mouse :location]))
   (draw-coordinates canvas (get state :mode) (get-in state [:mouse :location]))
   (draw-current-part canvas (get state :mode) (get-in state [:mouse :location]) (get state :parts))
-  (draw-connection-info canvas (get state :connection) (get state :time))
-  (draw-mode-info canvas (get state :mode))
   (draw-state-info canvas state)
   (draw-plan-segments canvas (get-in state [:route :plan]))
   (draw-waypoints canvas (get-in state [:route :waypoints]))
   (if (not (= :execute (.-keyword (get-in state [:mode :primary]))))
     (draw-plan-animation canvas (get-in state [:route :plan]) (get-in state [:route :animation]))
-    (draw-actuator-position canvas (get-in state [:robot :position])))
-  )
+    (draw-actuator-position canvas (get-in state [:robot :position]))))

@@ -34,9 +34,18 @@ ul {
     position: fixed;
 }
 
+.label {
+    font-size: 14px;
+}
+
 .section-title {
     font-size: 14px;
     text-decoration: underline;
+}
+
+.error {
+    color: #FF0000;
+    font-style: bold;
 }
 
 button {
@@ -84,12 +93,36 @@ button:hover {
 }
 
 #main-buttons {
-    position: absolute;
     bottom: 30px;
-    right: 0px;
     left: 0px;
     margin: 0px auto;
+    position: absolute;
+    right: 0px;
     width: 440px;
+}
+
+#lighter {
+    bottom: 60px;
+    left: 0px;
+    margin: 0px auto;
+    position: absolute;
+    right: 0px;
+    text-align: center;
+    width: 250px;
+}
+
+#connection {
+    position: absolute;
+    right: 20px;
+    bottom: 60px;
+    text-align: right;
+}
+
+#time {
+    position: absolute;
+    right: 20px;
+    bottom: 40px;
+    text-align: right;
 }
 
 /* default-color #C9EAF9 */
