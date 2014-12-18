@@ -1,11 +1,15 @@
 (ns rc2.state
-  (:require [reagent.core :as reagent :refer [atom]]
+  (:require [cljs.core.async :as async
+             :refer [<! chan put!]]
+            [reagent.core :as reagent :refer [atom]]
             [rc2.api :as api]
             [rc2.draw :as draw]
             [rc2.util :as util]
-            [clojure.set :as set]))
+            [clojure.set :as set])
+  (:require-macros [cljs.core.async.macros :refer [go]]))
 
 (declare plan-route!)
+(declare move-to!)
 (declare resume-execution!)
 (declare pause-execution!)
 (declare stop-execution!)
@@ -14,6 +18,8 @@
 (def heartbeat-timeout (* heartbeat-interval 3))
 (def task-update-interval 500) ;; Check for task state changes every 500ms.
 (def position-update-interval 500) ;; Check for position state changes every 500ms.
+
+(def task-chan (chan))
 
 (defprotocol Mode
   "Protocol for interacting with RC2 input modes."
@@ -70,7 +76,8 @@
                               {\D #(enter-mode :delete %)
                                \E #(enter-mode :edit %)
                                \P #(enter-mode :source %)
-                               \S #(enter-mode :sink %)}
+                               \S #(enter-mode :sink %)
+                               \F #(enter-mode :follow %)}
                               "INSERT"
                               [#(enter-mode :sink %)] []))
 (def execute-mode (->InputMode :execute :primary
@@ -81,6 +88,16 @@
                                 \space #(enter-mode :pause %)}
                                "EXECUTE"
                                [#(enter-mode :run %)] []))
+(def follow-mode (->InputMode :follow :primary
+                              {\P #(enter-mode :source %)
+                               \S #(enter-mode :sink %)
+                               \backspace #(enter-mode :insert %)
+                                \newline #(enter-mode :insert %)
+                                \return #(enter-mode :insert %)
+                                \formfeed #(enter-mode :insert %)
+                                \space #(enter-mode :insert %)}
+                               "FOLLOW"
+                               [] []))
 
 (defn enter-mode [mode state]
   (enter (condp = mode
@@ -88,6 +105,8 @@
            :insert insert-mode
            :delete delete-mode
            :edit edit-mode
+           :execute execute-mode
+           :follow follow-mode
            :source source-mode
            :sink sink-mode
            :run run-mode
@@ -207,13 +226,17 @@
 (defn apply-state-transforms [state transforms]
   "Apply a series of transforms of the form [in-path out-path transform] to a state map and return
   the updated map."
-  (reduce (fn [prev-state [in-paths out-path xform]]
-            (let [xform-state (apply xform (map #(get-in prev-state %) in-paths))]
-              (if (empty? out-path)
-                xform-state
-                (assoc-in prev-state out-path xform-state))))
-          state
-          transforms))
+  (try
+   (reduce (fn [prev-state [in-paths out-path xform]]
+             (let [xform-state (apply xform (map #(get-in prev-state %) in-paths))]
+               (if (empty? out-path)
+                 xform-state
+                 (assoc-in prev-state out-path xform-state))))
+           state
+           transforms)
+   (catch js/Object e
+     (.log js/console "Caught error" e "while updating state:" (str state))
+     (throw e))))
 
 ;; TODO Refactor transforms to explicitly specify if they need the output destination as an input
 
@@ -238,7 +261,8 @@
     (if (and (not (some :hover buttons))
              (clicked? mouse 0))
       (cond
-       (and (= insert-mode primary)
+       (and (or (= follow-mode primary)
+                (= insert-mode primary))
             (get-selected-part-id parts))
        (update-in route [:waypoints]
                   conj {:location (:location mouse)
@@ -358,6 +382,18 @@
           :index (mod (+ 1 (:index anim-state)) (- (count plan) 1)))))
     default-animation-state))
 
+(defn move-robot-to-follow! [mouse-loc primary secondary parts]
+  "Send a move command to the robot to go to the current mouse location."
+  ;; TODO Add logic to control Z axis, maybe usings croll wheel.
+  (when (= follow-mode primary)
+    (let [waypoint {:location mouse-loc
+                    :kind (.-keyword secondary)
+                    :part-id (get-selected-part-id parts)}]
+      (.log js/console "Moving robot to waypoint:" (str waypoint))
+      (move-to! waypoint)
+      ))
+  mouse-loc)
+
 (def pre-draw-transforms
   [
   [[] [:time] util/current-time]
@@ -381,6 +417,10 @@
      [:mode :secondary]
      [:parts]
      [:route]] [:route] handle-waypoint-updates]
+   [[[:mouse :location]
+     [:mode :primary]
+     [:mode :secondary]
+     [:parts]] [:mouse :location] move-robot-to-follow!]
    [[[:canvas] [:mouse :location] [:route :waypoints]] [:route :waypoints] highlight-waypoints]
    [[[:route :waypoints] [:route :plan]] [:route :plan] update-plan-annotations]
    [[[:canvas] [:route :plan] [:route :animation]] [:route :animation] update-plan-animation]
@@ -474,11 +514,18 @@
   (let [task-state (:state task)
         id (:id task)]
     (cond
+     (= "new" task-state) (update-in state [:tasks :pending] conj task)
      (= "complete" task-state) (-> state
                                    (on-task-completion task)
                                    (move-to-complete task))
      (= "cancelled" task-state) (move-to-complete state task)
      :else state)))
+
+(go (loop []
+      (let [task (<! task-chan)]
+        (when task
+          (swap! app-state update-task-state task)
+          (recur)))))
 
 (defn start-task! [task & {:keys [error success] :or {error nil success nil}}]
   "Send a task to the server and add its ID to the pending task list."
@@ -487,9 +534,7 @@
    (fn [resp]
      (.log js/console "Started task" (str resp))
      (when success (success resp))
-     (if (= "complete" (:state resp))
-       (swap! app-state update-task-state resp)
-       (swap! app-state update-in [:tasks :pending] #(conj % resp))))
+     (put! task-chan resp))
    (fn [resp]
      (.log js/console "Failed to add task " (str task))
      (when error (error resp)))))
@@ -515,6 +560,13 @@
   "Send a request to the server to plan a route using the current waypoints."
   (start-task! {:type :plan :waypoints (mapv clean-waypoint waypoints)}))
 
+(defn move-to!
+  ([waypoint] (start-task! {:type :move :waypoint (clean-waypoint waypoint)}))
+  ([waypoint on-success on-error]
+     (start-task! {:type :move :waypoint (clean-waypoint waypoint)}
+                  :success on-success
+                  :error on-error)))
+
 (defn resume-execution! [route]
   ;; TODO Retry the previous task if it was cancelled by pause
   (let [exec-state (:execution route)
@@ -525,10 +577,9 @@
         next-step (if (< current (count plan)) (nth plan current) nil)]
     (if next-step
       (do
-        (start-task! {:type :move :waypoint (clean-waypoint next-step)}
-                     :success (fn [task]
-                                (swap! app-state assoc-in [:route :execution :task-id] (:id task)))
-                     :error (fn [_] (swap! app-state #(enter pause-mode %))))
+        (move-to! next-step
+                  #(swap! app-state assoc-in [:route :execution :task-id] (:id %))
+                  (fn [_] (swap! app-state #(enter pause-mode %))))
         (-> route
             (assoc-in [:execution :current] (+ 1 current))
             (assoc-in [:execution :plan] plan)))

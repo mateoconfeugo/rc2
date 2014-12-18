@@ -98,6 +98,10 @@
                :source source-color
                :sink sink-color
                default-color)
+     :follow (condp = secondary
+               :source source-color
+               :sink sink-color
+               default-color)
      :edit dark-color
      default-color)))
 
