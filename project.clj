@@ -13,7 +13,7 @@
                  [org.clojure/algo.generic "0.1.1"]
                  [org.clojure/clojure "1.5.1"]
                  [org.clojure/clojurescript "0.0-2234"]
-                 [org.clojure/core.async "0.1.0-SNAPSHOT"]
+                 [org.clojure/core.async "0.1.338.0-5c5012-alpha"]
                  [org.clojure/math.combinatorics "0.0.7"]
                  [org.clojure/math.numeric-tower "0.0.2"]
                  [org.clojure/tools.cli "0.3.1"]

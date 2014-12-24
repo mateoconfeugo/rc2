@@ -521,11 +521,12 @@
      (= "cancelled" task-state) (move-to-complete state task)
      :else state)))
 
-(go (loop []
-      (let [task (<! task-chan)]
-        (when task
-          (swap! app-state update-task-state task)
-          (recur)))))
+(defn start-async-task-processor []
+  (go
+    (loop []
+      (when-let [task (<! task-chan)]
+        (swap! app-state update-task-state task)
+        (recur)))))
 
 (defn start-task! [task & {:keys [error success] :or {error nil success nil}}]
   "Send a task to the server and add its ID to the pending task list."
@@ -637,6 +638,7 @@
 
 (defn attach-handlers [body canvas]
   (swap! app-state assoc :canvas canvas)
+  (start-async-task-processor)
   (set! (.-onmousemove canvas) on-mouse-move!)
   (set! (.-onmouseup canvas) on-mouse-up!)
   (set! (.-onmousedown canvas) on-mouse-down!)
