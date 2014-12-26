@@ -121,15 +121,6 @@
                             coord)
                part-name (mode-color mode))))
 
-(defn draw-state-info [canvas state]
-  (let [context (util/get-context canvas)
-        x 230
-        y 90]
-    (doall (map-indexed
-            (fn [i kv]
-              (draw-text context (util/->canvas x (+ y (* 20 i))) (str kv) dark-color))
-            state))))
-
 (defn get-waypoint-text [parts current [idx wp]]
   (let [kind (if (= :source (:kind wp)) "SOURCE " "SINK   ")
         coord (util/pp-coord (:location wp))
@@ -176,7 +167,6 @@
   (draw-crosshairs canvas (get-in state [:mouse :location]))
   (draw-coordinates canvas (get state :mode) (get-in state [:mouse :location]))
   (draw-current-part canvas (get state :mode) (get-in state [:mouse :location]) (get state :parts))
-  (draw-state-info canvas state)
   (draw-plan-segments canvas (get-in state [:route :plan]))
   (draw-waypoints canvas (get-in state [:route :waypoints]))
   (if (not (= :execute (.-keyword (get-in state [:mode :primary]))))

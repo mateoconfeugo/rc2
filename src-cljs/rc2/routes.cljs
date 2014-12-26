@@ -25,4 +25,8 @@
     (state/global-put! :current-page :plan)
     (state/global-put! :nav "home"))
 
+  (defroute "/debug/state" []
+    (state/global-put! :current-page :debug.state)
+    (state/global-put! :nav "home"))
+
   (hook-browser-navigation!))

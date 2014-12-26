@@ -4,7 +4,10 @@
 
 
 (defn home-page []
-  [:div [:h2 "Home"]])
+  [:div.menu
+   [:h1 "RC2 Home"]
+   [:a {:href "/#/plan"} "Planner"]
+   ])
 
 (defn planner-page []
   [:div
@@ -12,7 +15,13 @@
    [components/visualizer]
    [components/ui-elements]])
 
+(defn state-page []
+  [:div
+   [:h1 "Debug: State"]
+   [components/state-dump]])
+
 (defn page-renderer [page]
   (get {:home home-page
-        :plan planner-page}
+        :plan planner-page
+        :debug.state state-page}
        page))

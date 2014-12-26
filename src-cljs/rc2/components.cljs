@@ -45,7 +45,6 @@
     {:component-did-mount
      (fn []
        (let [canvas (sel1 :#target)]
-         (.log js/console "Attaching handlers to canvas" canvas)
          (state/attach-canvas-handlers canvas)
          (state/on-state-change!)))}))
 
@@ -53,10 +52,8 @@
   "HTML5 canvas element which serves as a draw target for the route visualization."
   ;; We need to dereference the state atom here in order to get Reagent to re-render this component.
   (let [state @state/app-state]
-   (if-let [canvas (sel1 :#target)]
-     (do
-       (draw/draw canvas state))
-     (.log js/console "No canvas to draw on, skipping frame.")))
+   (when-let [canvas (sel1 :#target)]
+     (draw/draw canvas state)))
   [:div {:hidden true} "[placeholder]"])
 
 (defn ui-elements []
@@ -87,3 +84,6 @@
 
 (defn header []
   [:div.header])
+
+(defn state-dump []
+  [:div.app-state (str @state/app-state)])
