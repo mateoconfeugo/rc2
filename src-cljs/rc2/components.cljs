@@ -37,10 +37,26 @@
    [:ul (for [item items]
           [section-item (str (xform item)) (:highlight item)])]])
 
-(defn- visualizer []
+(defn- canvas []
+  [:canvas {:id "target"}])
+
+(def visualizer-canvas
+  (with-meta canvas
+    {:component-did-mount
+     (fn []
+       (let [canvas (sel1 :#target)]
+         (.log js/console "Attaching handlers to canvas" canvas)
+         (state/attach-canvas-handlers canvas)
+         (state/on-state-change!)))}))
+
+(defn visualizer []
   "HTML5 canvas element which serves as a draw target for the route visualization."
-  (let [canvas (sel1 :#target)]
-    (draw/draw canvas @state/app-state))
+  ;; We need to dereference the state atom here in order to get Reagent to re-render this component.
+  (let [state @state/app-state]
+   (if-let [canvas (sel1 :#target)]
+     (do
+       (draw/draw canvas state))
+     (.log js/console "No canvas to draw on, skipping frame.")))
   [:div {:hidden true} "[placeholder]"])
 
 (defn ui-elements []
@@ -68,3 +84,6 @@
       (if (:connected (:connection app-state)) "CONNECTED" "OFFLINE")
       (if (:connected (:connection app-state)) "normal" "error")]
      [label "time" (str (:time app-state))]]))
+
+(defn header []
+  [:div.header])

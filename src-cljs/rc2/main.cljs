@@ -18,20 +18,18 @@
 
 (defn page-render []
   [:div.container
-   ;; [components/header]
+   [components/header]
    [(pages/page-renderer (:current-page @state/app-state))]])
 
 (defn page-component []
   (reagent/create-class {:component-will-mount routes/app-routes
                          :render page-render}))
 
-(defn main []
+(defn ^:export main []
   (api/get-meta (fn [data] (.log js/console "API server uptime:" (get data :uptime)))
                 (fn [err] (.log js/console "Error getting server metadata:" (str err))))
   (.log js/console "Setting up")
-  (let [body  (sel1 :body)
-        canvas (sel1 :#target)]
-    (state/attach-handlers body canvas)
-    (state/on-state-change!))
+  (let [body  (sel1 :body)]
+    (state/attach-body-handlers body))
   (reagent/render-component [page-component] (.getElementById js/document "app"))
   (swap! timer-id #(.setInterval js/window on-timer-tick! (/ 1000 framerate))))

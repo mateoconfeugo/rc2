@@ -1,6 +1,6 @@
 (ns rc2.web.server.task
-  (:require [schema.core :as s])
-  (:use [clojure.core.async]))
+  (:require [schema.core :as s]
+            [clojure.core.async :refer [go <! >! >!! chan close!]]))
 
 ;;;; Task management facilities for RC2 API server.
 (defonce model (ref {:events {}

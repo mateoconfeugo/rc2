@@ -11,8 +11,8 @@
                  [javax.servlet/servlet-api "2.5"]
                  [liberator "0.10.0"]
                  [org.clojure/algo.generic "0.1.1"]
-                 [org.clojure/clojure "1.5.1"]
-                 [org.clojure/clojurescript "0.0-2234"]
+                 [org.clojure/clojure "1.6.0"]
+                 [org.clojure/clojurescript "0.0-2268"]
                  [org.clojure/core.async "0.1.338.0-5c5012-alpha"]
                  [org.clojure/math.combinatorics "0.0.7"]
                  [org.clojure/math.numeric-tower "0.0.2"]
@@ -31,7 +31,7 @@
   :repositories {"local" ~(str (.toURI (java.io.File. "maven-local")))
                  "sonatype-oss-public" "https://oss.sonatype.org/content/groups/public/"}
   :plugins [
-            [lein-cljsbuild "1.0.3"]
+            [lein-cljsbuild "1.0.4-SNAPSHOT"]
             [speclj "2.9.1"]
             ]
   :profiles {:dev {:plugins [[lein-marginalia "0.7.1"]]

@@ -8,8 +8,9 @@
 
 (defn planner-page []
   [:div
-   [components/ui-elements]
-   [components/visualizer]])
+   [components/visualizer-canvas]
+   [components/visualizer]
+   [components/ui-elements]])
 
 (defn page-renderer [page]
   (get {:home home-page

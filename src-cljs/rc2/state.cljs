@@ -636,12 +636,14 @@
   (do-periodically task-update-interval [:tasks :last-poll] check-tasks!)
   (do-periodically position-update-interval [:robot :last-poll] check-position!))
 
-(defn attach-handlers [body canvas]
+(defn attach-canvas-handlers [canvas]
   (swap! app-state assoc :canvas canvas)
   (start-async-task-processor)
   (set! (.-onmousemove canvas) on-mouse-move!)
   (set! (.-onmouseup canvas) on-mouse-up!)
   (set! (.-onmousedown canvas) on-mouse-down!)
-  (set! (.-onkeydown body) on-key-down!)
-  (set! (.-onkeyup body) on-key-up!)
   (set! (.-onresize js/window) (partial on-resize! canvas)))
+
+(defn attach-body-handlers [body]
+  (set! (.-onkeydown body) on-key-down!)
+  (set! (.-onkeyup body) on-key-up!))
