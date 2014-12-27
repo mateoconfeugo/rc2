@@ -19,14 +19,20 @@
 
   (defroute "/" []
     (state/global-put! :current-page :home)
-    (state/global-put! :nav "home"))
+    (state/global-put! :nav []))
 
   (defroute "/plan" []
     (state/global-put! :current-page :plan)
-    (state/global-put! :nav "home"))
+    (state/global-put! :nav [:home]))
 
   (defroute "/debug/state" []
     (state/global-put! :current-page :debug.state)
-    (state/global-put! :nav "home"))
+    (state/global-put! :nav [:home]))
 
   (hook-browser-navigation!))
+
+(defn get-page-link [page]
+  (get {:home "/#/"
+        :plan "/#/plan"
+        :debug.state "/#/debug/state"}
+       page))

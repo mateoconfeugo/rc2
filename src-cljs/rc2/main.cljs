@@ -18,7 +18,7 @@
 
 (defn page-render []
   [:div.container
-   [components/header]
+   [pages/header]
    [(pages/page-renderer (:current-page @state/app-state))]])
 
 (defn page-component []

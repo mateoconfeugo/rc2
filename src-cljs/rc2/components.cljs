@@ -82,8 +82,5 @@
       (if (:connected (:connection app-state)) "normal" "error")]
      [label "time" (str (:time app-state))]]))
 
-(defn header []
-  [:div.header])
-
 (defn state-dump []
   [:div.app-state (str @state/app-state)])
