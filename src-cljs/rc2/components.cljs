@@ -77,10 +77,12 @@
                                                   (get-in app-state [:ui :buttons]))]
                           [main-button id (:text button)])]
      [lighter (:mode app-state)]
-     [label "connection"
-      (if (:connected (:connection app-state)) "CONNECTED" "OFFLINE")
-      (if (:connected (:connection app-state)) "normal" "error")]
      [label "time" (str (:time app-state))]]))
 
 (defn state-dump []
   [:div.app-state (str @state/app-state)])
+
+(defn connection-info []
+  (let [app-state @state/app-state]
+   [:span#connection {:class (if (:connected (:connection app-state)) "normal" "error")}
+    (if (:connected (:connection app-state)) "CONNECTED" "OFFLINE")]))

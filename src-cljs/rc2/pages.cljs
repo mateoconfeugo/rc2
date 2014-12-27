@@ -6,7 +6,8 @@
 
 (defn header []
   [:div#header
-   (map page-link (get @state/app-state :nav))])
+   (map page-link (get @state/app-state :nav))
+   [components/connection-info]])
 
 (defn page-link [page]
   [:a {:href (routes/get-page-link page)} (page-name page)])
