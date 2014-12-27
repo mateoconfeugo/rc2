@@ -273,13 +273,13 @@ running API server, and provides a graphical, interactive environment for:
 
 * Unimplemented Features
 ** Base Feature Set
-  - [ ] Display event log
+  - [ ] Save and load calibration data, plans, etc. to and from persistent storage
+  - [ ] Provide a textual programming interface
 
 ** Intermediate Features
   - [ ] Provide UI/API for calibrating the robot
   - [ ] Consider part orientations in planning phase
   - [ ] Generate GCode to drive Rostock electronics
-  - [ ] Save and load calibration data, plans, etc. to and from persistent storage
 
 ** Advanced Features
   - [ ] Capture imagery from arm-mounted camera
@@ -287,15 +287,6 @@ running API server, and provides a graphical, interactive environment for:
 * Engineering
 These concerns affect the quality of the codebase, and will probably need to be addressed as the
 application complexity increases.
-
-** UI wiring complexity
-I'm a little concerned about how complex it's getting to add new behaviors to the UI. The wiring is
-convoluted and requires touching a lot of places; there's got to be a better way to hook things up
-so that the concerns are better separated. The current implementation is quite naive, and I think
-with some more thought it can be improved significantly. This extends not only to buttons, but to
-modes as well - they seem like they could be much better encapsulated than they are now. Maybe the
-better way to go is to separate out the visualization and input UI elements and do the inputs in
-plain HTML.
 
 ** Test coverage
 A lot of this code doesn't have tests. It shouldn't be too difficult to test, given the dependencies
