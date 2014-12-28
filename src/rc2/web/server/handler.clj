@@ -13,9 +13,9 @@
     (println "Descriptor:" descriptor)
     (println "Driver:" driver)
     (println "Position:" position)
-    (let [result (when (rbt/reachable? descriptor position)
+    (let [result (when (rbt/reachable? descriptor position [])
                    (println "Pose seems reachable - attempting move.")
-                   (->> (rbt/find-pose descriptor position)
+                   (->> (rbt/find-pose descriptor position [])
                        ((fn [p] (println "Pose: " p) p))
                        (rbt/take-pose! driver)))]
       (println "Move complete")

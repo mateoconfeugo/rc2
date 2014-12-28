@@ -27,10 +27,10 @@
 (describe
  "reachable?"
  (it "a point that is half the arm's distance away is reachable"
-     (should= true (delta/reachable? test-descriptor (pos/->vec upper 0 0))))
+     (should= true (delta/delta-reachable? test-descriptor (pos/->vec upper 0 0) [])))
  (it "a point 3 units more distant than the arm's length is unreachable"
      (should= false
-              (delta/reachable? test-descriptor (pos/->vec (+ upper lower 3) 0 0)))))
+              (delta/delta-reachable? test-descriptor (pos/->vec (+ upper lower 3) 0 0) []))))
 
 (describe
  "inverse-3d"
@@ -76,10 +76,10 @@
                     z-val (- (* (+ upper lower) (math/sin angle)))]
                 (pose-within? angle-tolerance
                               (delta/->DeltaPose {:a (- angle) :b (- angle) :c (- angle)} {})
-                              (robot/find-pose test-descriptor (pos/->vec 0 0 z-val))))))
+                              (robot/find-pose test-descriptor (pos/->vec 0 0 z-val) [])))))
  (it "when positioned directly under arm A, B & C should be vertical"
      (should (let [angle (- (/ math/pi 2))]
                (pose-within? angle-tolerance (delta/->DeltaPose {:a 0 :b angle :c angle} {})
-                             (robot/find-pose test-descriptor (pos/->vec 10 0 -10)))))))
+                             (robot/find-pose test-descriptor (pos/->vec 10 0 -10) []))))))
 
 (run-specs)

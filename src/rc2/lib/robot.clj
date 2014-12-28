@@ -1,23 +1,35 @@
 (ns rc2.lib.robot
-  (:require [rc2.lib.position :as pos])
+  (:require [rc2.lib.position :as pos]
+            [schema.core :as s])
   (:import [clojure.lang IPersistentMap IPersistentVector Keyword]))
+
+;; A waypoint describing cartesian position and orientation.
+(s/defrecord Waypoint [x :- s/Num
+                       y :- s/Num
+                       z :- s/Num
+                       a :- s/Num
+                       b :- s/Num
+                       c :- s/Num])
+
+;; A constraint limits the possible poses that a robot can take.
+(s/defrecord PoseConstraint [kind :- s/Keyword])
 
 ;; This protocol defines pose creation functions. Passing a desired position and
 ;; descriptor allows the functions to create pose descriptions that can be
 ;; passed to robot drivers.
 (defprotocol RobotDescriptor
   "State transition functions for a robot"
-  (find-pose [descriptor position]
+  (find-pose [descriptor position constraints]
     "Perform inverse kinematics to find a pose that puts the robot in 'position with parameters from
     'descriptor.")
-  (reachable? [descriptor position]
+  (reachable? [descriptor position constraints]
     "Returns true if the position is reachable, false otherwise."))
 
 ;; This protocol defines pose manipulation/access functions.
 (defprotocol RobotPose
   "Interface functions for robot poses."
   (joint-angles [pose] "Get the joint angles for the pose as a map from servo to angle.")
-  (position [pose] "Get the cartesian coordinates for the pose."))
+  (waypoint [pose] "Get the waypoint reached by this pose."))
 
 ;; This protocol is intended to be used by functions which implement interfaces
 ;; to the actual device. These could be hardware or software interfaces; when
