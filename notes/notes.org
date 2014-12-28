@@ -133,13 +133,13 @@ no longer be cancelled.
 #+begin_src ditaa :file comms-flow.png
 
   +----------+     +-------------------+     +-------------------+
-  | Dispatch |     |   Exclusionary    |     |    Exclusionary   |
+  | Dispatch |     |      Serial       |     |      Serial       |
   |  Queue   |---->|      Queue        |---->|      Worker       |
   |   {s}    |     |       {s}         |  +->|                   |
   |          |     +-------------------+  |  +-------------------+
   |          |                            |
   |          |     +-------------------+  |  +-------------------+
-  |          |     |  NonExclusionary  |  |  |  NonExclusionary  |
+  |          |     |     Parallel      |  |  |     Parallel      |
   |          |---->|      Queue        |--+->|      Worker       |
   |          |     |       {s}         |  +->|                   |
   +----------+     +-------------------+  |  +-------------------+
