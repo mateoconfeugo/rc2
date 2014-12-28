@@ -24,7 +24,6 @@
                  :handle-ok (fn [ctx] (let [tasks (task/get-tasks)]
                                         (println "Tasks:" tasks)
                                         tasks))
-                 :handle-created ::task
                  :post! (fn [ctx]
                           (println "Request:" (get-in ctx [:request :body]))
                           (let [options (get-in ctx [:request :body])
@@ -33,6 +32,18 @@
                             (println "Added task:" task)
                             {::id (:id task)}))
                  :post-redirect? (fn [ctx] {:location (format "/api/v1/tasks/%s" (::id ctx))})))
+  (ANY "/api/v1/tasks/pause" []
+       (resource :available-media-types ["application/json"]
+                 :allowed-methods [:post :get]
+                 :handle-ok (fn [ctx] {:status @task/execution-state})
+                 :post! (fn [ctx] (task/pause-task-execution!))
+                 :post-redirect? (fn [ctx] {:location "/api/v1/tasks/pause"})))
+  (ANY "/api/v1/tasks/resume" []
+       (resource :available-media-types ["application/json"]
+                 :allowed-methods [:post :get]
+                 :handle-ok (fn [ctx] {:status @task/execution-state})
+                 :post! (fn [ctx] (task/resume-task-execution!))
+                 :post-redirect? (fn [ctx] {:location "/api/v1/tasks/resume"})))
   (ANY "/api/v1/tasks/:id" [id]
        (resource :available-media-types ["application/json"]
                  :allowed-methods [:get]

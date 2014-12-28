@@ -39,8 +39,16 @@
   (initialize! [interface] "Perform setup operations on the interface. Return true if initialization
   succeeds.")
   (shut-down! [interface] "Perform shut down and clean up of the interface.")
+
+  (set-parameters! [interface parameters] "Set motor parameters on the interface.")
+  (calibrate! [interface calibrations] "Set calibration settings for the interface.")
+
   (take-pose! [interface pose] "Move the robot into the pose. Return true if the pose was reached
   successfully, false otherwise.")
-  (set-tool-state! [interface tool state] "Change the tool state.")
-  (set-parameters! [interface parameters] "Set motor parameters on the interface.")
-  (calibrate! [interface calibrations] "Set calibration settings for the interface."))
+
+  (set-output-state! [interface output state] "Change the output state.")
+  (read-input! [interface input] "Read an input.")
+
+  (emergency-stop! [interface] "Immediately halt all movement.")
+  ;; Non-emergency halt & restart?
+  )

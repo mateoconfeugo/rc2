@@ -1,6 +1,6 @@
 (ns rc2.web.server.task
   (:require [schema.core :as s]
-            [clojure.core.async :refer [go <! >! >!! chan close!]]))
+            [clojure.core.async :refer [go <! >! >!! chan close! timeout]]))
 
 ;;;; Task management facilities for RC2 API server.
 (defonce model (ref {:events {}
@@ -11,9 +11,11 @@
 (defonce task-types (atom {}))
 
 (def initialized (atom false))
-(defonce queues {:dispatch (chan 50)
-                 :serial (chan 50)
-                 :parallel (chan 50)})
+(def execution-state (atom :running)) ;; Can be :running or :paused
+(defonce queues {:dispatch (chan 500)
+                 :serial (chan 500)
+                 :parallel (chan 50)
+                 :high-priority (chan 50)})
 
 (def Task {(s/required-key :id) s/Num
            (s/required-key :type) s/Keyword
@@ -37,11 +39,10 @@
                                 :affinity affinity})
   (println "Registered task type" type))
 
-;; TODO Add Emergency Stop functionality
-
 ;; This function is intended to be used only within this module. It is public only for unit testing.
 (defn do-task! [task handlers]
-  "Performs a task and returns the state updates which should be applied to it."
+  "Performs a task and returns the state updates which should be applied to it. If respect-pause is
+  false, continue processing tasks even if the system is paused."
   (if-let [handler (get handlers (:type task))]
     (try
       [:state :complete :result (handler task)]
@@ -49,42 +50,44 @@
         [:state :failed :errors [(.getMessage e)]]))
     [:state :failed :errors [(str "No handler for task type " (:type task))]]))
 
-(defn- dispatch-queues! [{:keys [dispatch serial parallel]}]
-  "Allocate tasks from the 'dispatch queue into the 'serial and 'parallel queues."
-  (go (loop [task (<! dispatch)]
+(defn- dispatch-queues! [queues]
+  "Allocate tasks from the 'dispatch queue into the queue matching the task affinity."
+  (go (loop [task (<! (:dispatch queues))]
         (when task
-          (>! (case (:affinity task)
-                :serial serial
-                :parallel parallel)
+          (>! (get queues (:affinity task))
               task)
-          (recur (<! dispatch))))))
+          (recur (<! (:dispatch queues)))))))
 
 (defn get-handlers [types]
   "Extract handler functions into a map keyed by type from the full task data map."
   (into {} (map (fn [[type data]] [type (:handler data)]) types)))
 
-(defn- process-queue! [queue]
+(defn- process-queue! [queue respect-pause]
   "Process tasks from the queue until it is closed."
   (go (loop [task (<! queue)]
         (when task
           (update-task! (:id task) :state :processing)
-          (apply (partial update-task! (:id task)) (do-task! task (get-handlers @task-types)))
+          (apply (partial update-task! (:id task))
+                 (do (while (and (= :paused @execution-state) respect-pause)
+                       (<! (timeout 100))) ;; Check every 100ms for unpause.
+                     (do-task! task (get-handlers @task-types))))
           (recur (<! queue))))))
 
 (defn init-workers! [num-parallel]
-  "Create worker jobs to consume tasks. Creates one serial worker and 'num-parallel parallel ones.
-   This function does not check to see if workers have already been created."
+  "Create worker jobs to consume tasks. Creates one worker per serial queue and 'num-parallel
+parallel ones. This function does not check to see if workers have already been created."
   (if @initialized
     false
     (do (dispatch-queues! queues)
-        (process-queue! (:serial queues))
+        (process-queue! (:high-priority queues) false)
+        (process-queue! (:serial queues) true)
         (dotimes [i num-parallel]
-          (process-queue! (:parallel queues)))
+          (process-queue! (:parallel queues) true))
         (reset! initialized true))))
 
-(defn shutdown-queues! [& {:keys [dispatch serial parallel]}]
+(defn shutdown-queues! [queues]
   "Shut down the queues so that workers will terminate when the last task is consumed."
-  (map close! [dispatch serial parallel]))
+  (map close! (vals queues)))
 
 (defn dispatch-task! [task]
   "Add a task to the dispatch queue for execution."
@@ -142,6 +145,16 @@
 (defn cancel-task! [id]
   "Cancel a task by ID."
   (update-task! id :state :cancelled))
+
+(defn pause-task-execution! []
+  "Temporarily pause execution of new tasks."
+  (println "Pausing task execution.")
+  (reset! execution-state :paused))
+
+(defn resume-task-execution! []
+  "Un-pause execution of new tasks."
+  (println "Resuming task execution.")
+  (reset! execution-state :running))
 
 (defn get-tasks []
   "Get the task registry."

@@ -25,6 +25,11 @@
   ;; TODO Add handler to pause task execution.
   true)
 
+(defn- handle-emergency-stop [task]
+  (let [driver (settings/get-setting [:connection :interface])]
+    (println "Executing emergency stop!")
+    (rbt/emergency-stop! driver)))
+
 (defn- waypoint->source [{:keys [part-id x y z] :or {:z 0}}]
   "Convert a waypoint into a source definition."
   [part-id [x y z]])
@@ -43,6 +48,7 @@
 
 (defn attach-handlers! []
   "Attach handlers for the tasks API."
+  (task/register-task-type! :emergency-stop handle-move-task :affinity :high-priority)
   (task/register-task-type! :move handle-move-task)
   (task/register-task-type! :pause handle-pause-task)
   (task/register-task-type! :plan handle-plan-task :affinity :parallel))

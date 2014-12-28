@@ -43,4 +43,6 @@
       (println "Setting accelerations to" accelerations)
       (set-accelerations! interface accelerations)))
   (calibrate! [interface calibrations]
-    (assoc interface :calibrations calibrations)))
+    (assoc interface :calibrations calibrations))
+  (emergency-stop! [interface]
+    (write-line interface "M112")))
