@@ -617,7 +617,7 @@
               #(filterv (fn [t] (not= id (:id t))) %))))))
 
 (defn check-position! [_]
-  (api/get-status
+  (api/get-robot-position
    (fn [resp]
      (let [position (util/->world (vals (:position resp)))]
        (swap! app-state assoc-in [:robot :position] position)))

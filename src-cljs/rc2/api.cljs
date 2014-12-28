@@ -36,8 +36,8 @@
                                   :error-handler (comp error keywordize)
                                   :format :json}))
 
-(defn get-status [success error]
-  (GET "/api/v1/status" {:handler (comp success keywordize)
+(defn get-robot-position [success error]
+  (GET "/api/v1/robot/position" {:handler (comp success keywordize)
                 :error-handler (comp error keywordize)
                 :format :json}))
 

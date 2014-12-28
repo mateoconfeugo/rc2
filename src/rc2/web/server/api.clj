@@ -61,7 +61,7 @@
                  :exists? (fn [_] (let [event (task/get-event (Integer. id))]
                                     (if event {::event event})))
                  :handle-ok ::event))
-  (ANY "/api/v1/status" []
+  (ANY "/api/v1/robot/position" []
        (resource :available-media-types ["application/json"]
                  :allowed-methods [:get]
                  ;; TODO Wire this up to actual position data
