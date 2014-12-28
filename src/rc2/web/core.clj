@@ -15,16 +15,21 @@
             [clojure.tools.cli :as cli])
   (:gen-class))
 
+(def DescriptorSettings
+  "Schema for the descriptor settings in RC2 config files."
+  [s/Any])
+
 (def ConfigFile
   "Schema for the RC2 config file"
   {
    :calibration s/Keyword
    :descriptor s/Keyword
+   :descriptor-settings DescriptorSettings
    :driver s/Keyword
-   :http-port s/Int
    :max-accel s/Num
    :max-velocity s/Num
-   :serial-port s/Str
+   (s/optional-key :http-port) s/Int
+   (s/optional-key :serial-port) s/Str
    (s/optional-key :output) s/Str
    })
 
@@ -37,14 +42,16 @@
                          ["-c" "--config-file PATH" "Config file location"
                           :default "~/.rc2/config.clj"]])
         {:keys [config-file serial port]} options
-        config (read-string (slurp config-file))
-        serial (if serial serial (:serial-port config))
-        port (if port port (:http-port config))]
-    (s/validate ConfigFile (assoc config :serial-port serial :http-port port))))
+        config (settings/load-config! config-file)
+        serial (or serial (:serial-port config))
+        port (or port (:http-port config) 8000)]
+    (s/validate ConfigFile config)
+    (settings/change-setting! :serial-port serial)
+    (settings/change-setting! :http-port port)))
 
 (defn get-descriptor [config]
   (condp = (:descriptor config)
-    :delta (delta/->DeltaDescriptor 10.2 15 3.7 4.7)
+    :delta (apply delta/->DeltaDescriptor (:descriptor-settings config))
     (throw (IllegalArgumentException. (str "Unrecognized descriptor type " (:descriptor config))))))
 
 (defn get-calibration [config]
@@ -96,7 +103,6 @@
   (let [config (parse-args args)
         descriptor (get-descriptor config)
         connection (connect config)]
-    (settings/set-config! config)
     (settings/change-setting! :connection connection)
     (settings/change-setting! :descriptor descriptor)
     (println "Initializing task system")

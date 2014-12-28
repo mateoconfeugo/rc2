@@ -6,6 +6,10 @@
   "Replace the entire current configuration."
   (reset! config cfg))
 
+(defn load-config! [file]
+  "Load configuration from a file."
+  (set-config! (read-string (slurp file))))
+
 (defn get-config [cfg]
   "Get the entire current configuration."
   @config)
@@ -16,8 +20,8 @@
     (get-in @config key)
     (get @config key)))
 
-(defn change-setting! [key new-val]
+(defn change-setting! [key-or-keys new-val]
   "Change a configuration value."
-  (if (vector? key)
-    (swap! config assoc-in key new-val)
-    (swap! config assoc key new-val)))
+  (if (vector? key-or-keys)
+    (swap! config assoc-in key-or-keys new-val)
+    (swap! config assoc key-or-keys new-val)))
