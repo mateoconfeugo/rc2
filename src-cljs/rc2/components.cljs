@@ -1,9 +1,14 @@
 (ns rc2.components
   (:use-macros [dommy.macros :only [sel1]])
-  (:require [reagent.core :as reagent]
+  (:require [reagent.core :as reagent :refer [atom]]
             [rc2.api :as api]
             [rc2.draw :as draw]
             [rc2.state :as state]))
+
+(defn toggle-class [a k class1 class2]
+  (if (= (@a k) class1)
+    (swap! a assoc k class2)
+    (swap! a assoc k class1)))
 
 (defn- label
   "A simple label that contains text."
@@ -48,6 +53,16 @@
          (state/attach-canvas-handlers canvas)
          (state/on-state-change!)))}))
 
+(defn program-panel [settings]
+  (let [state (atom {:panel-class "panel"})]
+    (fn []
+      [:div {:class (:panel-class @state)}
+       [:div.tab {:on-click (fn []
+                              (.log js/console "Toggling panel state")
+                              (toggle-class state :panel-class "panel" "panel visible"))}
+        "Program"]
+       "Panel"])))
+
 (defn visualizer []
   "HTML5 canvas element which serves as a draw target for the route visualization."
   ;; We need to dereference the state atom here in order to get Reagent to re-render this component.
@@ -77,7 +92,8 @@
                                                   (get-in app-state [:ui :buttons]))]
                           [main-button id (:text button)])]
      [lighter (:mode app-state)]
-     [label "time" (str (:time app-state))]]))
+     [label "time" (str (:time app-state))]
+     [program-panel (get-in app-state [:ui :panels :right])]]))
 
 (defn state-dump []
   [:div.app-state (str @state/app-state)])
