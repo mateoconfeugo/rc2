@@ -46,9 +46,20 @@
         sinks (mapv waypoint->sink sinks)]
     (planner/plan-pick-and-place sources sinks)))
 
+(defn- handle-get-calibration-task [task]
+  (settings/get-setting [:connection :calibration]))
+
+(defn- handle-set-calibration-task [task]
+  (let [calibration (:calibration task)
+        driver (settings/get-setting [:connection :interface])]
+    (settings/change-setting! [:connection :calibration] calibration)
+    (rbt/calibrate! driver calibration)))
+
 (defn attach-handlers! []
   "Attach handlers for the tasks API."
   (task/register-task-type! :emergency-stop handle-move-task :affinity :high-priority)
   (task/register-task-type! :move handle-move-task)
   (task/register-task-type! :pause handle-pause-task)
-  (task/register-task-type! :plan handle-plan-task :affinity :parallel))
+  (task/register-task-type! :plan handle-plan-task :affinity :parallel)
+  (task/register-task-type! :calibrate handle-set-calibration-task :affinity :parallel)
+  (task/register-task-type! :get-calibration handle-get-calibration-task :affinity :parallel))

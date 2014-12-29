@@ -1,5 +1,6 @@
 (ns rc2.web.core
-  (:require [serial-port :as serial]
+  (:require [clojure.core.async :refer [<!!]]
+            [serial-port :as serial]
             [schema.core :as s]
             [rc2.lib
              [math :as math]
@@ -15,25 +16,7 @@
             [clojure.tools.cli :as cli])
   (:gen-class))
 
-(def DescriptorSettings
-  "Schema for the descriptor settings in RC2 config files."
-  [s/Any])
-
-(def ConfigFile
-  "Schema for the RC2 config file"
-  {
-   :calibration s/Keyword
-   :descriptor s/Keyword
-   :descriptor-settings DescriptorSettings
-   :driver s/Keyword
-   :max-accel s/Num
-   :max-velocity s/Num
-   (s/optional-key :http-port) s/Int
-   (s/optional-key :serial-port) s/Str
-   (s/optional-key :output) s/Str
-   })
-
-(defn parse-args [args]
+(defn get-config [args]
   "Parse command line arguments into a map of their values."
   (let [{:keys [options summary errors]}
         (cli/parse-opts args
@@ -45,7 +28,7 @@
         config (settings/load-config! config-file)
         serial (or serial (:serial-port config))
         port (or port (:http-port config) 8000)]
-    (s/validate ConfigFile config)
+    (settings/change-setting! :config-file config-file)
     (settings/change-setting! :serial-port serial)
     (settings/change-setting! :http-port port)))
 
@@ -55,7 +38,7 @@
     (throw (IllegalArgumentException. (str "Unrecognized descriptor type " (:descriptor config))))))
 
 (defn get-calibration [config]
-  (let [calibration (:calibration config)
+  (let [calibration (read-string (slurp (:calibration-file config)))
         driver (:driver config)]
     (if (= :default calibration)
       (condp = driver
@@ -67,7 +50,8 @@
         (throw (IllegalArgumentException. (str "No default calibration for driver " driver))))
       (if (nil? calibration)
         (throw (IllegalArgumentException. "No calibration data provided!"))
-        calibration))))
+        (do (println "Loaded calibration data")
+          calibration)))))
 
 (defn get-driver [config serial-port calibration]
   (let [driver (:driver config)]
@@ -82,7 +66,7 @@
   (let [port (:serial-port config)]
     (println "Connecting to serial: " port)
     (if (= "none" port)
-      (println "Skipping serial connection.")
+      (println "Skipping serial connection")
       (serial/open port))))
 
 (defn connect [config]
@@ -96,17 +80,20 @@
                          {:velocity {:a max-velocity :b max-velocity :c max-velocity}
                           :acceleration {:a max-accel :b max-accel :c max-accel}})
     {:interface driver
-     :serial serial-port}))
+     :serial serial-port
+     :calibration calibration}))
 
 (defn -main [& args]
   (println "Starting up.")
-  (let [config (parse-args args)
+  (let [config (get-config args)
         descriptor (get-descriptor config)
         connection (connect config)]
     (settings/change-setting! :connection connection)
-    (settings/change-setting! :descriptor descriptor)
+    (settings/change-setting! [:connection :descriptor] descriptor)
     (println "Initializing task system")
     (task/init-workers! 5)
     (handler/attach-handlers!)
-    (api/start-api-server (Integer. (:http-port config)))
-    (when-let [serial-port (:serial connection)] (serial/close serial-port))))
+    (let [shutdown-chan (api/start-api-server! (Integer. (:http-port config)))]
+      (<!! shutdown-chan) ;; Block until the API server shuts down
+      (when-let [serial-port (:serial connection)] (serial/close serial-port))
+      (settings/save-config! (:config-file config) (:calibration-file config)))))

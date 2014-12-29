@@ -8,5 +8,5 @@
  :max-accel 1000   ;; mm/s^2
  :http-port 8000
  :serial-port "none"
- :calibration :default
+ :calibration-file "calibration.clj"
  }

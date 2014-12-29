@@ -1,5 +1,6 @@
 (ns rc2.web.server.api
   (:require
+   [clojure.core.async :refer [chan close!]]
    [clojure.data.json :as json]
    [clojure.java.io :as io]
    [compojure.core :refer [defroutes ANY GET POST]]
@@ -13,6 +14,8 @@
    [ring.middleware.reload :as reload]
    [ring.middleware.stacktrace :as trace]
    [ring.util.response :as resp]))
+
+(declare stop-api-server!)
 
 (def start-time 0)
 (def api-server (atom nil))
@@ -83,6 +86,12 @@
                  :handle-ok (fn [_] {:status :online
                                      :uptime (int (/ (- (System/currentTimeMillis)
                                                         start-time) 1000))})))
+  (ANY "/shutdown" []
+       (resource :available-media-types ["application/json"]
+                 :allowed-methods [:post]
+                 :handle-ok (fn [_] (resp/resource-response "shutdown.html" {:root "public"}))
+                 :post! (fn [ctx] (stop-api-server!))
+                 :post-redirect? (fn [ctx] {:location (format "/meta" (::id ctx))})))
   (GET "/" [] (resp/resource-response "index.html" {:root "public"}))
   (route/resources "/")
   (route/not-found "Not Found"))
@@ -93,14 +102,20 @@
              (wrap-json-response)
              (trace/wrap-stacktrace)))
 
-(defn start-api-server [port]
+(defn start-api-server! [port]
   "Start the API server on the given port."
   (def start-time (System/currentTimeMillis))
   (println "Starting API server on port" port)
-  (reset! api-server
-          (server/run-server (reload/wrap-reload (site #'api)) {:port port :join? false}))
-  (println "API server up/running"))
+  (let [shutdown-chan (chan)]
+    (reset! api-server
+            {:shutdown-fn
+             (server/run-server (reload/wrap-reload (site #'api)) {:port port :join? false})
+             :shutdown-chan shutdown-chan})
+    (println "API server up/running")
+    shutdown-chan))
 
-(defn stop-api-server []
+(defn stop-api-server! []
   "Stop the API server"
-  (@api-server :timeout 100))
+  (let [{:keys [shutdown-fn shutdown-chan]} @api-server]
+    (shutdown-fn :timeout 100)
+    (close! shutdown-chan)))
