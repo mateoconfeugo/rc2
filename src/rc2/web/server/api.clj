@@ -88,8 +88,8 @@
                                                         start-time) 1000))})))
   (ANY "/shutdown" []
        (resource :available-media-types ["application/json"]
-                 :allowed-methods [:post]
-                 :handle-ok (fn [_] (resp/resource-response "shutdown.html" {:root "public"}))
+                 :allowed-methods [:get :post]
+                 :handle-ok (fn [_] (stop-api-server!) {:good :bye})
                  :post! (fn [ctx] (stop-api-server!))
                  :post-redirect? (fn [ctx] {:location (format "/meta" (::id ctx))})))
   (GET "/" [] (resp/resource-response "index.html" {:root "public"}))
@@ -116,6 +116,6 @@
 
 (defn stop-api-server! []
   "Stop the API server"
-  (let [{:keys [shutdown-fn shutdown-chan]} @api-server]
+  (let [{:keys [shutdown-fn shutdown-chan] :as api-serv} @api-server]
     (shutdown-fn :timeout 100)
     (close! shutdown-chan)))

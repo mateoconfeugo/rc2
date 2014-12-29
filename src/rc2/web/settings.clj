@@ -8,8 +8,7 @@
 
 (def ConfigFile
   "Schema for the RC2 config file"
-  {
-   :calibration-file s/Str
+  {:calibration-file s/Str
    :descriptor s/Keyword
    :descriptor-settings DescriptorSettings
    :driver s/Keyword
@@ -17,8 +16,7 @@
    :max-velocity s/Num
    (s/optional-key :http-port) s/Int
    (s/optional-key :serial-port) s/Str
-   (s/optional-key :output) s/Str
-   })
+   (s/optional-key :output) s/Str})
 
 (def config (atom {}))
 
@@ -55,7 +53,7 @@
   "Save configuration to a file."
   (println "Saving configuration to disk.")
   (let [cfg (sanitize-config @config)]
-    (println "Saved:" cfg)
-    (spit config-file (pprint/pprint cfg)))
-  (spit calibration-file (pprint/pprint
-                          (get-setting [:connection :calibration]))))
+    (spit config-file (with-out-str (pprint/pprint cfg))))
+  (spit calibration-file (with-out-str
+                           (pprint/pprint
+                           (get-setting [:connection :calibration])))))

@@ -15,7 +15,8 @@
 (defn home-page []
   [:div.menu
    [:h1 "RC2 Home"]
-   [:a {:href "/#/plan"} "Planner"]
+   [:p [:a {:href "/#/plan"} "Planner"]]
+   [:p [:a {:href "/shutdown.html"} "Shut Down"]]
    ])
 
 (defn planner-page []
