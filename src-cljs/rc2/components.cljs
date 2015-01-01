@@ -108,7 +108,6 @@
                                                   (get-in app-state [:ui :buttons]))]
                           [main-button id (:text button)])]
      [lighter (:mode app-state)]
-     [label "time" (str (:time app-state))]
      [panel "right" [[editor ";; This is an editor"]
                      [:div#panel-buttons "Buttons will go here"]]]
      [panel "left" [";; This is a panel"
