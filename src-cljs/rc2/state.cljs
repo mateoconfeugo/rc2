@@ -457,13 +457,11 @@
 
 (defn on-key-down! [event]
   "Handle key down events."
-  (.preventDefault event)
   (swap! app-state update-in [:keyboard :pressed] conj (.fromCharCode js/String (.-keyCode event)))
   (on-event!))
 
 (defn on-key-up! [event]
   "Handle key up events."
-  (.preventDefault event)
   (swap! app-state update-in [:keyboard :pressed] disj (.fromCharCode js/String (.-keyCode event)))
   (on-event!))
 
@@ -642,8 +640,6 @@
   (set! (.-onmousemove canvas) on-mouse-move!)
   (set! (.-onmouseup canvas) on-mouse-up!)
   (set! (.-onmousedown canvas) on-mouse-down!)
+  (set! (.-onkeydown canvas) on-key-down!)
+  (set! (.-onkeyup canvas) on-key-up!)
   (set! (.-onresize js/window) (partial on-resize! canvas)))
-
-(defn attach-body-handlers [body]
-  (set! (.-onkeydown body) on-key-down!)
-  (set! (.-onkeyup body) on-key-up!))

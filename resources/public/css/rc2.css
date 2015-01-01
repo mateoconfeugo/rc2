@@ -86,16 +86,19 @@ ul {
     background: rgba(0, 0, 0, 0.65);
     border-style: solid;
     border: 1px;
+    cursor: default;
     height: 100%;
-    padding: 5px;
     position: absolute;
-    right: -405px;
     transition: right 1s ease;
     width: 400px;
     z-index: 20;
 }
 
-.panel.visible {
+.panel.right {
+    right: -400px;
+}
+
+.panel.right.visible {
     right: 0px;
 }
 
@@ -108,8 +111,13 @@ ul {
     position: relative;
     text-align: center;
     text-transform: uppercase;
-    transform: rotate(-90deg) translateX(-40px) translateY(-40px);
+    transform: rotate(-90deg) translateX(-40px) translateY(-35px);
     width: 80px;
+}
+
+.tab:hover {
+    background: #C9EAF9;
+    color: black;
 }
 
 #header {
@@ -183,6 +191,22 @@ ul {
     text-align: center;
     top: 50%;
     width: 200px;
+}
+
+#editor {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 50px;
+    left: 0;
+}
+
+#editor-buttons {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    left: 0;
+    height: 50px;
 }
 
 /* default-color #C9EAF9 */

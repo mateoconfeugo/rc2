@@ -49,19 +49,34 @@
   (with-meta canvas
     {:component-did-mount
      (fn []
+       (.log js/console "Mounting canvas")
        (let [canvas (sel1 :#target)]
          (state/attach-canvas-handlers canvas)
          (state/on-state-change!)))}))
 
-(defn program-panel [settings]
-  (let [state (atom {:panel-class "panel"})]
+(defn panel [side children]
+  (let [default-class (str "panel " side)
+        state (atom {:panel-class default-class})]
     (fn []
-      [:div {:class (:panel-class @state)}
-       [:div.tab {:on-click (fn []
-                              (.log js/console "Toggling panel state")
-                              (toggle-class state :panel-class "panel" "panel visible"))}
-        "Program"]
-       "Panel"])))
+      (let [component (into []
+                            (concat
+                             [:div {:class (:panel-class @state)}] children
+                             [[:div.tab {:on-click (fn []
+                                                      (.log js/console "Toggling panel state")
+                                                      (toggle-class state :panel-class default-class
+                                                                    (str default-class " visible")))}
+                                "Program"]]))]
+        component))))
+
+(def editor
+  (with-meta (fn [text] [:div {:id "editor"} text])
+    {:component-did-mount
+     (fn []
+       (.log js/console "Mounting editor")
+       (let [editor (.edit js/ace "editor")]
+         (.setTheme editor "ace/theme/monokai")
+         (.setMode (.getSession editor) "ace/mode/clojure")
+         (.setHighlightActiveLine editor true)))}))
 
 (defn visualizer []
   "HTML5 canvas element which serves as a draw target for the route visualization."
@@ -93,7 +108,8 @@
                           [main-button id (:text button)])]
      [lighter (:mode app-state)]
      [label "time" (str (:time app-state))]
-     [program-panel (get-in app-state [:ui :panels :right])]]))
+     [panel "right" [[editor ";; This is an editor"]
+                     [:div#editor-buttons "Buttons will go here"]]]]))
 
 (defn state-dump []
   [:div.app-state (str @state/app-state)])
@@ -102,3 +118,13 @@
   (let [app-state @state/app-state]
    [:span#connection {:class (if (:connected (:connection app-state)) "normal" "error")}
     (if (:connected (:connection app-state)) "CONNECTED" "OFFLINE")]))
+
+
+
+
+
+
+
+
+
+
