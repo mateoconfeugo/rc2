@@ -61,11 +61,12 @@
       (let [component (into []
                             (concat
                              [:div {:class (:panel-class @state)}] children
-                             [[:div.tab {:on-click (fn []
-                                                      (.log js/console "Toggling panel state")
-                                                      (toggle-class state :panel-class default-class
-                                                                    (str default-class " visible")))}
-                                "Program"]]))]
+                             [[:div.tab {:class side
+                                         :on-click (fn []
+                                                     (.log js/console "Toggling panel state")
+                                                     (toggle-class state :panel-class default-class
+                                                                   (str default-class " invisible")))}
+                               "Program"]]))]
         component))))
 
 (def editor
@@ -109,7 +110,9 @@
      [lighter (:mode app-state)]
      [label "time" (str (:time app-state))]
      [panel "right" [[editor ";; This is an editor"]
-                     [:div#editor-buttons "Buttons will go here"]]]]))
+                     [:div#panel-buttons "Buttons will go here"]]]
+     [panel "left" [";; This is a panel"
+                    [:div#panel-buttons "Buttons will go here"]]]]))
 
 (defn state-dump []
   [:div.app-state (str @state/app-state)])

@@ -89,17 +89,25 @@ ul {
     cursor: default;
     height: 100%;
     position: absolute;
-    transition: right 1s ease;
+    transition: right 1s ease, left 1s ease;
     width: 400px;
     z-index: 20;
 }
 
 .panel.right {
+    right: 0px;
+}
+
+.panel.right.invisible {
     right: -400px;
 }
 
-.panel.right.visible {
-    right: 0px;
+.panel.left {
+    left: 0px;
+}
+
+.panel.left.invisible {
+    left: -400px;
 }
 
 .tab {
@@ -107,12 +115,20 @@ ul {
     border: 1px solid #C9EAF9;
     border-radius: 3px;
     height: 20px;
-    left: -20px;
-    position: relative;
+    position: absolute;
     text-align: center;
     text-transform: uppercase;
-    transform: rotate(-90deg) translateX(-40px) translateY(-35px);
     width: 80px;
+}
+
+.tab.right {
+    left: -20px;
+    transform: rotate(-90deg) translateX(-40px) translateY(-35px);
+}
+
+.tab.left {
+    right: -20px;
+    transform: rotate(-90deg) translateX(-40px) translateY(35px);
 }
 
 .tab:hover {
@@ -201,7 +217,7 @@ ul {
     left: 0;
 }
 
-#editor-buttons {
+#panel-buttons {
     position: absolute;
     bottom: 0;
     right: 0;
