@@ -128,7 +128,7 @@ ul {
 
 .tab.left {
     right: -20px;
-    transform: rotate(-90deg) translateX(-40px) translateY(35px);
+    transform: rotate(-90deg) translateX(-30px) translateY(35px);
 }
 
 .tab:hover {
