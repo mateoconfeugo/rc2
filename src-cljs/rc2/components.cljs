@@ -35,12 +35,17 @@
   (let [class (if highlight "highlight" "")]
     [:li {:class class} text]))
 
-(defn- section [id title items xform]
-  "Component which displays a list of items with a title."
-  [:div.ui-element.section {:id id}
-   [:span.section-title title]
-   [:ul (for [item items]
-          [section-item (str (xform item)) (:highlight item)])]])
+(defn- section [id title elements xform]
+  "Component which displays a list of items with a title.
+ELEMENTS can either be a list of items to render or a function that yields a list.
+XFORM is a function applied to each element before rendering."
+  (.log js/console "Rendering section" title "with items" (str items))
+  (fn []
+    (let [items (if (fn? elements) (elements) elements)]
+     [:div.ui-element.section {:id id}
+      [:span.section-title title]
+      [:ul (for [item items]
+             [section-item (str (xform item)) (:highlight item)])]])))
 
 (defn- canvas []
   [:canvas {:id "target"}])
@@ -54,21 +59,32 @@
          (state/attach-canvas-handlers canvas)
          (state/on-state-change!)))}))
 
-(defn panel [side children]
-  (let [default-class (str "panel " side)
-        state (atom {:panel-class default-class})]
+(defn panel [side & children]
+  "A component which creates a collapsible panel on SIDE, containing CHILDREN.
+Because of the details of internal state tracking, CHILDREN will need to have their own fns
+accessing global state to be re-rendered."
+  (.log js/console "Rendering" side "panel")
+  (let [collapsed (atom false)]
     (fn []
-      (let [component (into []
-                            (concat
-                             [:div {:class (:panel-class @state)}] children
-                             [[:div.tab {:class side
-                                         :on-click (fn []
-                                                     (.log js/console "Toggling panel state")
-                                                     (toggle-class state :panel-class default-class
-                                                                   (str default-class " invisible")))}
-                               "Program"]]))]
-        component))))
+      (into []
+            (concat
+             [:div {:class
+                    (str "panel " side
+                         (if @collapsed
+                           " invisible"
+                           ""))}]
+             [[:div.tab
+               {:class side
+                :on-click (fn [] (swap! collapsed not))}
+               (cond
+                 (or (and (= "left" side)
+                          (not @collapsed))
+                     (and (= "right" side)
+                          @collapsed)) "<"
+                          :else ">")]]
+             children)))))
 
+;; An ACE editor component.
 (def editor
   (with-meta (fn [text] [:div {:id "editor"} text])
     {:component-did-mount
@@ -91,27 +107,35 @@
   "Top-level RC2 UI element."
   (let [app-state @state/app-state]
     [:div.ui-element
-     [section "waypoint-list" "WAYPOINTS"
-      (draw/indexed (get-in app-state [:route :waypoints]))
-      (partial draw/get-waypoint-text (get app-state :parts)
-               (get-in app-state [:route :execution :current]))]
-     [section "part-list" "PARTS"
-      (sort-by :id (map (fn [[id part]] (assoc part :id id)) (get app-state :parts)))
-      (fn [part] (str (:id part) ": " (:name part)))]
-     [section "plan-list" "PLAN"
-      (draw/indexed (get-in app-state [:route :plan]))
-      (partial draw/get-waypoint-text (get app-state :parts)
-               (get-in app-state [:route :execution :current]))]
-     [:div#main-buttons (for [[id button] (filter (fn [[id btn]]
-                                                    (when-let [pred (:visible-when btn)]
-                                                      (pred app-state)))
-                                                  (get-in app-state [:ui :buttons]))]
+     [panel "left"
+      [section "waypoint-list" "waypoints"
+       ;; Because 'panel' components return fns to do their rendering, we need to use functions here
+       ;; to access global state atoms and get re-rendered.
+       (fn [] (draw/indexed (get-in @state/app-state [:route :waypoints])))
+       (fn [x] (draw/get-waypoint-text
+                (get @state/app-state :parts)
+                (get-in @state/app-state [:route :execution :current])
+                x))]
+      [section "part-list" "parts"
+       (fn [] (sort-by :id (map (fn [[id part]] (assoc part :id id))
+                                (get @state/app-state :parts))))
+       (fn [part] (str (:id part) ": " (:name part)))]
+      [:div#panel-buttons "Buttons will go here"]]
+     [panel "right"
+      [section "plan-list" "plan"
+       (fn [] (draw/indexed (get-in @state/app-state [:route :plan])))
+       (fn [] (partial draw/get-waypoint-text
+                       (get @state/app-state :parts)
+                       (get-in @state/app-state [:route :execution :current])))]
+      ;; [editor ";; This is an editor"]
+      [:div#panel-buttons "Buttons will go here"]]
+     [:div#main-buttons (for [[id button]
+                              (filter (fn [[id btn]]
+                                        (when-let [pred (:visible-when btn)]
+                                          (pred app-state)))
+                                      (get-in app-state [:ui :buttons]))]
                           [main-button id (:text button)])]
-     [lighter (:mode app-state)]
-     [panel "right" [[editor ";; This is an editor"]
-                     [:div#panel-buttons "Buttons will go here"]]]
-     [panel "left" [";; This is a panel"
-                    [:div#panel-buttons "Buttons will go here"]]]]))
+     [lighter (:mode app-state)]]))
 
 (defn state-dump []
   [:div.app-state (str @state/app-state)])
