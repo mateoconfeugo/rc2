@@ -1,0 +1,11 @@
+#
+GET http://localhost:8000/api/v1/robot/position
+Content-Type: application/json
+Host: localhost:8000
+
+# Not allowed
+POST http://localhost:8000/api/v1/robot/position
+Content-Type: application/json
+Host: localhost:8000
+
+{"position": { "x": 5, "z": 0, "y": 5}}

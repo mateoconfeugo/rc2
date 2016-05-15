@@ -2,9 +2,8 @@
   (:require [clojure.core.async :refer [<!!]]
             [serial-port :as serial]
             [schema.core :as s]
-            [rc2.lib
-             [math :as math]
-             [robot :as rbt]]
+            [rc2.lib.math :as math]
+             [rc2.lib.robot :as rbt :refer [initialize!]]
             [rc2.lib.descriptor.delta :as delta]
             [rc2.lib.driver.pololu :as pol]
             [rc2.lib.driver.gcode :as gcode]
@@ -13,6 +12,7 @@
             [rc2.web.server.api :as api]
             [rc2.web.server.handler :as handler]
             [rc2.web.server.task :as task]
+            [clojure.pprint :refer [pprint]]
             [clojure.tools.cli :as cli])
   (:gen-class))
 
@@ -97,3 +97,11 @@
       (<!! shutdown-chan) ;; Block until the API server shuts down
       (when-let [serial-port (:serial connection)] (serial/close serial-port))
       (settings/save-config! (:config-file config) (:calibration-file config)))))
+
+(comment
+(def cfg (load-file "/Users/mburns/projects/github/rc2/config.clj"))
+(def driver (connect cfg))
+(rbt/initialize! driver)
+(pprint driver)
+
+)
